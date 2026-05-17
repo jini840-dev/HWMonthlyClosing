@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>입금 마감 현황 모니터링</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="alert-banner" class="alert-banner hidden">
+        ⚠️ 처리 지연 건 발생! 시스템 모니터링 요망 ⚠️
+    </div>
+
+    <div class="dashboard-container">
+        <header>
+            <h1>입금 마감 현황 모니터링 대시보드</h1>
+            <div class="clock" id="live-clock">00:00:00</div>
+        </header>
+
+        <main>
+            <section class="main-progress-section card">
+                <h2>오늘 전체 입금 처리율</h2>
+                <div class="stats">
+                    <span id="current-amount">0</span> 건 / <span id="target-amount">100,000</span> 건
+                </div>
+                <div class="progress-bar-container large">
+                    <div class="progress-bar" id="main-progress"></div>
+                </div>
+                <div class="percentage" id="main-percentage">0%</div>
+            </section>
+
+            <section class="channel-section">
+                <div class="card">
+                    <h3>가상계좌</h3>
+                    <div class="stats">
+                        <span id="vbank-current">0</span> 건
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-blue" id="vbank-progress"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>자동이체 (CMS)</h3>
+                    <div class="stats">
+                        <span id="cms-current">0</span> 건
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-green" id="cms-progress"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>실시간 계좌이체</h3>
+                    <div class="stats">
+                        <span id="realtime-current">0</span> 건
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-orange" id="realtime-progress"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
