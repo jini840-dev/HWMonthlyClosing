@@ -64,15 +64,36 @@
                 <h2 class="section-title">과거 데이터 비교 (추이 모니터링)</h2>
                 <div class="grid-container">
                     <div class="card">
-                        <h3>직전 3개월 평균 처리량</h3>
+                        <h3 id="month-minus-1-title">M-1월 처리량</h3>
                         <div class="stats">
-                            <span id="last-3m-amount">0</span> 건
+                            <span id="month-minus-1-amount">0</span> 건
                         </div>
                         <div class="progress-bar-container">
-                            <div class="progress-bar bg-purple" id="last-3m-progress"></div>
+                            <div class="progress-bar bg-purple" id="month-minus-1-progress"></div>
                         </div>
-                        <div class="trend" id="last-3m-trend">
-                            <!-- Trend text will be inserted here -->
+                        <div class="trend" id="month-minus-1-trend">
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 id="month-minus-2-title">M-2월 처리량</h3>
+                        <div class="stats">
+                            <span id="month-minus-2-amount">0</span> 건
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar bg-purple" id="month-minus-2-progress"></div>
+                        </div>
+                        <div class="trend" id="month-minus-2-trend">
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 id="month-minus-3-title">M-3월 처리량</h3>
+                        <div class="stats">
+                            <span id="month-minus-3-amount">0</span> 건
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar bg-purple" id="month-minus-3-progress"></div>
+                        </div>
+                        <div class="trend" id="month-minus-3-trend">
                         </div>
                     </div>
                     <div class="card">
@@ -84,7 +105,6 @@
                             <div class="progress-bar bg-teal" id="last-year-progress"></div>
                         </div>
                         <div class="trend" id="last-year-trend">
-                            <!-- Trend text will be inserted here -->
                         </div>
                     </div>
                 </div>

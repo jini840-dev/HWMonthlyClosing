@@ -113,20 +113,41 @@ function init() {
 
 // 과거 데이터 모의 설정 함수
 function initHistoricalData() {
-    // 목표가 100,000건이라고 가정
-    const last3mAvg = 92000;
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentYear = now.getFullYear();
+
+    // 헬퍼 함수: 이전 달 계산
+    function getPreviousMonthName(monthsAgo) {
+        let d = new Date(currentYear, currentMonth - 1 - monthsAgo, 1);
+        return `${d.getMonth() + 1}월`;
+    }
+
+    // 모의 데이터
+    const monthMinus1Data = 95000;
+    const monthMinus2Data = 91000;
+    const monthMinus3Data = 89000;
     const lastYearAvg = 85000;
 
-    // 직전 3개월 데이터 바인딩
-    const last3mEl = document.getElementById('last-3m-amount');
-    const last3mProgress = document.getElementById('last-3m-progress');
-    const last3mTrend = document.getElementById('last-3m-trend');
-    
-    last3mEl.textContent = formatNumber(last3mAvg);
-    last3mProgress.style.width = `${(last3mAvg / targetAmount) * 100}%`;
-    last3mTrend.innerHTML = `<span class="trend-up">▲ 전월 대비 3.2% 증가</span>`;
+    // M-1 바인딩
+    document.getElementById('month-minus-1-title').textContent = `${getPreviousMonthName(1)} 처리량`;
+    document.getElementById('month-minus-1-amount').textContent = formatNumber(monthMinus1Data);
+    document.getElementById('month-minus-1-progress').style.width = `${(monthMinus1Data / targetAmount) * 100}%`;
+    document.getElementById('month-minus-1-trend').innerHTML = `<span class="trend-up">▲ 전월 대비 4.3% 증가</span>`;
 
-    // 전년 동월 데이터 바인딩
+    // M-2 바인딩
+    document.getElementById('month-minus-2-title').textContent = `${getPreviousMonthName(2)} 처리량`;
+    document.getElementById('month-minus-2-amount').textContent = formatNumber(monthMinus2Data);
+    document.getElementById('month-minus-2-progress').style.width = `${(monthMinus2Data / targetAmount) * 100}%`;
+    document.getElementById('month-minus-2-trend').innerHTML = `<span class="trend-up">▲ 전월 대비 2.2% 증가</span>`;
+
+    // M-3 바인딩
+    document.getElementById('month-minus-3-title').textContent = `${getPreviousMonthName(3)} 처리량`;
+    document.getElementById('month-minus-3-amount').textContent = formatNumber(monthMinus3Data);
+    document.getElementById('month-minus-3-progress').style.width = `${(monthMinus3Data / targetAmount) * 100}%`;
+    document.getElementById('month-minus-3-trend').innerHTML = `<span class="trend-up">▲ 지속적 상승세</span>`;
+
+    // 전년 동월 바인딩
     const lastYearEl = document.getElementById('last-year-amount');
     const lastYearProgress = document.getElementById('last-year-progress');
     const lastYearTrend = document.getElementById('last-year-trend');
