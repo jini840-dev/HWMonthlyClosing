@@ -100,12 +100,40 @@ function init() {
     realtimeAmount = 14000;
     currentAmount = vbankAmount + cmsAmount + realtimeAmount;
     updateUI();
+    
+    // 과거 데이터 비교 설정
+    initHistoricalData();
 
     // 0.8초마다 데이터 증가 시뮬레이션
     setInterval(simulateData, 800);
 
     // 3초마다 알림 조건 확인
     setInterval(checkRandomAlert, 3000);
+}
+
+// 과거 데이터 모의 설정 함수
+function initHistoricalData() {
+    // 목표가 100,000건이라고 가정
+    const last3mAvg = 92000;
+    const lastYearAvg = 85000;
+
+    // 직전 3개월 데이터 바인딩
+    const last3mEl = document.getElementById('last-3m-amount');
+    const last3mProgress = document.getElementById('last-3m-progress');
+    const last3mTrend = document.getElementById('last-3m-trend');
+    
+    last3mEl.textContent = formatNumber(last3mAvg);
+    last3mProgress.style.width = `${(last3mAvg / targetAmount) * 100}%`;
+    last3mTrend.innerHTML = `<span class="trend-up">▲ 전월 대비 3.2% 증가</span>`;
+
+    // 전년 동월 데이터 바인딩
+    const lastYearEl = document.getElementById('last-year-amount');
+    const lastYearProgress = document.getElementById('last-year-progress');
+    const lastYearTrend = document.getElementById('last-year-trend');
+
+    lastYearEl.textContent = formatNumber(lastYearAvg);
+    lastYearProgress.style.width = `${(lastYearAvg / targetAmount) * 100}%`;
+    lastYearTrend.innerHTML = `<span class="trend-up">▲ 전년 대비 8.5% 증가</span>`;
 }
 
 // DOM 로드 후 실행

@@ -7,6 +7,8 @@
     --success-color: #10b981;
     --warning-color: #f59e0b;
     --danger-color: #ef4444;
+    --purple-color: #8b5cf6;
+    --teal-color: #14b8a6;
 }
 
 * {
@@ -150,3 +152,32 @@ header h1 {
 .bg-blue { background-color: var(--primary-color); }
 .bg-green { background-color: var(--success-color); }
 .bg-orange { background-color: var(--warning-color); }
+
+.comparison-section {
+    margin-top: 30px;
+}
+
+.section-title {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.bg-purple { background-color: var(--purple-color); }
+.bg-teal { background-color: var(--teal-color); }
+
+.trend {
+    margin-top: 10px;
+    font-size: 0.95rem;
+}
+
+.trend-up { color: var(--success-color); }
+.trend-down { color: var(--danger-color); }
