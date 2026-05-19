@@ -167,6 +167,9 @@ function processRawData() {
     const rows = rawData.split('\n');
     let totalProcessedCount = 0;
     let totalRegCount = 0;
+    let vbankSum = 0;
+    let cmsSum = 0;
+    let realtimeSum = 0;
     
     // 첫 번째 줄은 항목명이므로 인덱스 1부터 시작
     for (let i = 1; i < rows.length; i++) {
@@ -176,26 +179,46 @@ function processRawData() {
         const cols = row.split('\t');
         if (cols.length < 7) continue;
 
-        // 컬럼 정의: [0]거래일자 [1]시간 [2]구분 [3]방법 [4]채널 [5]처리증번건수 [6]처리건수
+        // 컬럼 정의: [0]거래일자 [1]거래시간 [2]구분 [3]방법 [4]채널 [5]처리증번건수 [6]처리건수
+        const method = cols[3].trim();
         const regCount = parseInt(cols[5].replace(/,/g, ''), 10);
         const processedCount = parseInt(cols[6].replace(/,/g, ''), 10);
 
         if (!isNaN(regCount)) totalRegCount += regCount;
-        if (!isNaN(processedCount)) totalProcessedCount += processedCount;
+        if (!isNaN(processedCount)) {
+            totalProcessedCount += processedCount;
+            
+            // 입출금방법에 따른 채널별 분류 합산
+            if (method.includes('가상')) {
+                vbankSum += processedCount;
+            } else if (method.includes('CMS') || method.includes('자동이체')) {
+                cmsSum += processedCount;
+            } else if (method.includes('실시간')) {
+                realtimeSum += processedCount;
+            } else {
+                // 분류되지 않은 경우 기타로 분류하거나 가상계좌에 합산(기본값)
+                vbankSum += processedCount;
+            }
+        }
     }
 
     if (totalProcessedCount > 0 || totalRegCount > 0) {
+        // 전역 변수 업데이트
         currentAmount = totalProcessedCount;
         regAmount = totalRegCount;
+        vbankAmount = vbankSum;
+        cmsAmount = cmsSum;
+        realtimeAmount = realtimeSum;
         
-        // 가상 비율 분배 (채널별 데이터가 로우 데이터에 상세히 없을 경우 대비)
-        vbankAmount = Math.floor(currentAmount * 0.5);
-        cmsAmount = Math.floor(currentAmount * 0.3);
-        realtimeAmount = currentAmount - vbankAmount - cmsAmount;
+        // 목표치 동적 조정 (현재 처리량이 목표치를 넘을 경우)
+        if (currentAmount > targetAmount) {
+            // targetAmount = Math.ceil(currentAmount / 10000) * 10000;
+        }
         
         updateUI();
         initHistoricalData(currentAmount); 
-        alert(`분석 완료!\n처리건수: ${formatNumber(currentAmount)}건\n증번건수: ${formatNumber(regAmount)}건이 적용되었습니다.`);
+        
+        alert(`분석 완료!\n\n[상세 내역]\n- 총 증번건수: ${formatNumber(regAmount)}건\n- 총 처리건수(TR): ${formatNumber(currentAmount)}건\n\n[채널별 처리건수]\n- 가상계좌: ${formatNumber(vbankAmount)}건\n- CMS: ${formatNumber(cmsAmount)}건\n- 실시간: ${formatNumber(realtimeAmount)}건`);
     } else {
         alert('유효한 숫자 데이터를 찾을 수 없습니다. 형식이 맞는지 확인해주세요.');
     }
