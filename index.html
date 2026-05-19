@@ -3,124 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>입금 마감 현황 모니터링</title>
+    <title>입금 마감 통계 분석 보고서</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="alert-banner" class="alert-banner hidden">
-        ⚠️ 처리 지연 건 발생! 시스템 모니터링 요망 ⚠️
-    </div>
-
     <div class="dashboard-container">
         <header>
-            <h1>입금 마감 현황 모니터링 대시보드</h1>
-            <div class="clock" id="live-clock">00:00:00</div>
+            <h1>입금 마감 통계 분석 보고서</h1>
+            <div class="report-date" id="report-reference-date">기준일자: 2026-03-03</div>
         </header>
 
         <main>
-            <section class="main-progress-section card">
-                <h2>오늘 전체 입금 처리율</h2>
-                <div class="stats">
-                    <div class="main-stat-row">
-                        <span class="stat-label">처리건수:</span>
-                        <span id="current-amount">0</span> 건 / <span id="target-amount">100,000</span> 건
-                    </div>
-                    <div class="sub-stat-row">
-                        <span class="stat-label">증번건수:</span>
-                        <span id="reg-amount">0</span> 건
-                    </div>
-                </div>
-                <div class="progress-bar-container large">
-                    <div class="progress-bar" id="main-progress"></div>
-                </div>
-                <div class="percentage" id="main-percentage">0%</div>
-            </section>
-
-            <section class="channel-section">
-                <div class="card">
-                    <h3>가상계좌</h3>
-                    <div class="stats">
-                        <span id="vbank-current">0</span> 건
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar bg-blue" id="vbank-progress"></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <h3>자동이체 (CMS)</h3>
-                    <div class="stats">
-                        <span id="cms-current">0</span> 건
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar bg-green" id="cms-progress"></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <h3>실시간 계좌이체</h3>
-                    <div class="stats">
-                        <span id="realtime-current">0</span> 건
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar bg-orange" id="realtime-progress"></div>
-                    </div>
-                </div>
-            </section>
-
+            <!-- 데이터 입력 섹션 -->
             <section class="data-input-section card">
                 <h2>원시 데이터(Raw Data) 입력</h2>
-                <p>특정 시간대별 처리 증번건수, 처리건수 등 탭(Tab)으로 구분된 데이터를 아래에 붙여넣기 하세요.<br>
-                (기준일자: 2026-03-03)</p>
-                <textarea id="raw-data-input" rows="6" placeholder="예: 09:00&#9;150&#9;140"></textarea>
-                <button id="process-data-btn" class="btn-primary">데이터 분석 및 비교 적용</button>
+                <p>탭(Tab)으로 구분된 통계 데이터를 아래에 붙여넣기 하세요. (첫 줄은 항목명 포함)</p>
+                <textarea id="raw-data-input" rows="8" placeholder="거래일자&#9;거래시간..."></textarea>
+                <button id="process-data-btn" class="btn-primary">데이터 분석 실행</button>
             </section>
 
+            <!-- 분석 결과 섹션 (기본은 숨김 또는 0으로 표시) -->
+            <div id="report-results" class="results-container">
+                <section class="summary-section grid-container">
+                    <div class="card summary-card">
+                        <h3>총 증번건수</h3>
+                        <div class="stats main-stat"><span id="total-reg-count">0</span> 건</div>
+                    </div>
+                    <div class="card summary-card">
+                        <h3>총 처리건수 (TR)</h3>
+                        <div class="stats main-stat"><span id="total-processed-count">0</span> 건</div>
+                    </div>
+                </section>
+
+                <section class="detailed-reports grid-container">
+                    <div class="card report-card">
+                        <h3>거래일자별 요약</h3>
+                        <div id="date-report-list" class="stat-list">
+                            <p class="placeholder-text">데이터를 입력하면 집계 결과가 표시됩니다.</p>
+                        </div>
+                    </div>
+                    <div class="card report-card">
+                        <h3>시간대별(30분단위) 요약</h3>
+                        <div id="time-report-list" class="stat-list">
+                        </div>
+                    </div>
+                    <div class="card report-card">
+                        <h3>입출금방법별 요약</h3>
+                        <div id="method-report-list" class="stat-list">
+                        </div>
+                    </div>
+                    <div class="card report-card">
+                        <h3>처리기관채널별 요약</h3>
+                        <div id="channel-report-list" class="stat-list">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 과거 데이터 비교 섹션 -->
             <section class="comparison-section">
-                <h2 class="section-title">과거 데이터 비교 (추이 모니터링)</h2>
+                <h2 class="section-title">과거 데이터 비교 분석</h2>
                 <div class="grid-container">
                     <div class="card">
                         <h3 id="month-minus-1-title">M-1월 처리량</h3>
                         <div class="stats">
                             <span id="month-minus-1-amount">0</span> 건
                         </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar bg-purple" id="month-minus-1-progress"></div>
-                        </div>
-                        <div class="trend" id="month-minus-1-trend">
-                        </div>
+                        <div class="trend" id="month-minus-1-trend"></div>
                     </div>
                     <div class="card">
                         <h3 id="month-minus-2-title">M-2월 처리량</h3>
                         <div class="stats">
                             <span id="month-minus-2-amount">0</span> 건
                         </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar bg-purple" id="month-minus-2-progress"></div>
-                        </div>
-                        <div class="trend" id="month-minus-2-trend">
-                        </div>
+                        <div class="trend" id="month-minus-2-trend"></div>
                     </div>
                     <div class="card">
                         <h3 id="month-minus-3-title">M-3월 처리량</h3>
                         <div class="stats">
                             <span id="month-minus-3-amount">0</span> 건
                         </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar bg-purple" id="month-minus-3-progress"></div>
-                        </div>
-                        <div class="trend" id="month-minus-3-trend">
-                        </div>
+                        <div class="trend" id="month-minus-3-trend"></div>
                     </div>
                     <div class="card">
-                        <h3>전년 동월 (1년 전) 처리량</h3>
+                        <h3>전년 동월 처리량</h3>
                         <div class="stats">
                             <span id="last-year-amount">0</span> 건
                         </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar bg-teal" id="last-year-progress"></div>
-                        </div>
-                        <div class="trend" id="last-year-trend">
-                        </div>
+                        <div class="trend" id="last-year-trend"></div>
                     </div>
                 </div>
             </section>
