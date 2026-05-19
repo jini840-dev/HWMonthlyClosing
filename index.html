@@ -22,7 +22,14 @@
             <section class="main-progress-section card">
                 <h2>오늘 전체 입금 처리율</h2>
                 <div class="stats">
-                    <span id="current-amount">0</span> 건 / <span id="target-amount">100,000</span> 건
+                    <div class="main-stat-row">
+                        <span class="stat-label">처리건수:</span>
+                        <span id="current-amount">0</span> 건 / <span id="target-amount">100,000</span> 건
+                    </div>
+                    <div class="sub-stat-row">
+                        <span class="stat-label">증번건수:</span>
+                        <span id="reg-amount">0</span> 건
+                    </div>
                 </div>
                 <div class="progress-bar-container large">
                     <div class="progress-bar" id="main-progress"></div>

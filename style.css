@@ -97,12 +97,38 @@ header h1 {
     margin-bottom: 15px;
 }
 
+.main-stat-row, .sub-stat-row {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.main-stat-row {
+    margin-bottom: 5px;
+}
+
+.sub-stat-row {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.stat-label {
+    font-weight: 400;
+    font-size: 1rem;
+}
+
 .stats span {
     font-weight: bold;
     font-size: 1.5rem;
 }
 
+.sub-stat-row span {
+    font-size: 1.2rem;
+}
+
 #current-amount { color: var(--primary-color); }
+#reg-amount { color: var(--success-color); }
 
 .progress-bar-container {
     width: 100%;
