@@ -6,6 +6,8 @@
     <title>마감 통계 분석 자동화 시스템</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- 엑셀 파일 처리를 위한 SheetJS 라이브러리 추가 -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -21,9 +23,18 @@
             <section class="input-section card">
                 <div class="card-header">
                     <h2>Raw Data Input</h2>
-                    <p class="info-text">항목별 줄바꿈 형태의 데이터를 입력하세요.</p>
+                    <p class="info-text">항목별 줄바꿈 형태의 데이터를 입력하거나 파일을 업로드하세요.</p>
                 </div>
-                <textarea id="raw-data-input" rows="8" placeholder="데이터를 이곳에 붙여넣으세요..."></textarea>
+                
+                <!-- 파일 업로드 컨트롤 -->
+                <div class="file-upload-wrapper" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <input type="file" id="file-upload-input" accept=".xlsx, .xls, .csv, .txt, *" style="display: none;">
+                    <button type="button" id="file-upload-btn" class="btn-secondary" style="font-size: 0.85rem; padding: 0.5rem 1rem;">📁 파일 업로드 (Excel, No-ext, Text)</button>
+                    <span id="file-name-display" class="file-name-text" style="font-size: 0.85rem; color: #64748b;">선택된 파일 없음</span>
+                </div>
+
+                <textarea id="raw-data-input" rows="8" placeholder="데이터를 직접 붙여넣거나 파일을 업로드하세요..."></textarea>
+                
                 <div class="action-bar">
                     <button id="process-data-btn" class="btn-primary">분석 및 검증 실행</button>
                     <button id="load-raw-btn" class="btn-secondary">샘플 데이터 로드</button>

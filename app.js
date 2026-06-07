@@ -13,6 +13,9 @@ const elements = {
     processBtn: document.getElementById('process-data-btn'),
     loadBtn: document.getElementById('load-raw-btn'),
     clearBtn: document.getElementById('clear-btn'),
+    fileInput: document.getElementById('file-upload-input'),
+    fileBtn: document.getElementById('file-upload-btn'),
+    fileNameDisplay: document.getElementById('file-name-display'),
     dashboard: document.getElementById('dashboard-view'),
     errorBox: document.getElementById('error-log-container'),
     errorList: document.getElementById('error-list'),
@@ -57,19 +60,20 @@ function parseData(text) {
     return result;
 }
 
-function parseNum(v) { return parseInt(v.replace(/,/g, '')) || 0; }
+function parseNum(v) { return parseInt(v.toString().replace(/,/g, '')) || 0; }
 function formatDate(d) {
-    const s = d.replace(/-/g, '');
+    const s = d.toString().replace(/-/g, '');
     return s.length === 8 ? `${s.substring(0,4)}-${s.substring(4,6)}-${s.substring(6,8)}` : d;
 }
 function formatTime(t) {
-    if (t.includes(':')) {
-        const p = t.split(':');
+    const ts = t.toString();
+    if (ts.includes(':')) {
+        const p = ts.split(':');
         const h = p[0].padStart(2, '0');
         const m = p[1].padStart(2, '0');
         return `${h}:${m} ~ ${h}:59`;
     }
-    const h = t.padStart(2, '0');
+    const h = ts.padStart(2, '0');
     return `${h}:00 ~ ${h}:29`;
 }
 
@@ -89,7 +93,7 @@ function analyze() {
     const raw = elements.input.value;
     allData = parseData(raw);
     if (allData.length === 0) {
-        alert('분석할 데이터가 없습니다.');
+        alert('분석할 데이터가 없습니다. 형식을 확인해주세요.');
         return;
     }
 
@@ -122,7 +126,9 @@ function aggregate(rows) {
 function aggregateTimeSeries(data, curYM) {
     const getYM = (base, offset) => {
         const d = new Date(parseInt(base.substring(0,4)), parseInt(base.substring(4,6)) - 1 - offset, 1);
-        return d.getFullYear() + (d.getMonth() + 1).toString().padStart(2, '0');
+        const y = d.getFullYear();
+        const m = (d.getMonth() + 1).toString().padStart(2, '0');
+        return y + m;
     };
 
     const targetYMs = {
@@ -155,19 +161,15 @@ function render(cur, ts) {
     const yoyPer = yoy.proc > 0 ? ((yoyDiff / yoy.proc) * 100).toFixed(1) : 0;
     elements.stats.yoyDelta.innerHTML = `<span class="${yoyDiff >= 0 ? 'up' : 'down'}">${yoyDiff >= 0 ? '▲' : '▼'} ${Math.abs(yoyPer)}%</span>`;
 
-    // 채널 점유율
     renderShare(elements.visuals.channelShares, cur.channelMap, cur.totalProc);
-    // 입출금방법 점유율 (신규)
     renderShare(elements.visuals.methodShares, cur.methodMap, cur.totalProc);
 
-    // 시간대별 부하
     const maxVal = Math.max(...Object.values(cur.timeMap), 1);
     elements.visuals.timeLoad.innerHTML = Object.keys(cur.timeMap).sort().map(t => {
         const h = (cur.timeMap[t] / maxVal) * 100;
         return `<div class="load-bar-wrapper"><div class="load-bar" style="height:${h}%"></div><div class="load-label">${t.split(':')[0]}</div></div>`;
     }).join('');
 
-    // 월별 요약
     const summaryRows = [
         { label: '당월', data: ts.cur, prev: ts.m1 },
         { label: '전월(M-1)', data: ts.m1, prev: ts.m2 },
@@ -208,6 +210,43 @@ function renderDataTable(data) {
         <td class="num bold">${r.procCount.toLocaleString()}</td></tr>`).join('');
 }
 
+// --- 5. 파일 업로드 처리 엔진 ---
+elements.fileBtn.onclick = () => elements.fileInput.click();
+
+elements.fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    elements.fileNameDisplay.textContent = file.name;
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    // 엑셀 파일 처리 (.xlsx, .xls)
+    if (ext === 'xlsx' || ext === 'xls') {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            // 엑셀 데이터를 세로 줄바꿈 텍스트로 변환
+            const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+            const flatText = json.flat().filter(cell => cell !== null && cell !== undefined).join('\n');
+            elements.input.value = flatText;
+            alert('엑셀 파일이 텍스트로 변환되어 로드되었습니다.');
+        };
+        reader.readAsArrayBuffer(file);
+    } 
+    // 그 외 파일 (확장자 없음, 텍스트 등)
+    else {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            elements.input.value = evt.target.result;
+            alert('파일 내용이 로드되었습니다.');
+        };
+        reader.readAsText(file);
+    }
+};
+
+// --- 나머지 이벤트 ---
 elements.processBtn.onclick = analyze;
 elements.loadBtn.onclick = async () => {
     try {
@@ -218,6 +257,7 @@ elements.loadBtn.onclick = async () => {
 };
 elements.clearBtn.onclick = () => {
     elements.input.value = '';
+    elements.fileNameDisplay.textContent = '선택된 파일 없음';
     elements.dashboard.classList.add('hidden');
     elements.errorBox.classList.add('hidden');
 };
