@@ -8,7 +8,7 @@ let vaActualData = [];
 let currentMonthRows = [];
 let sortConfig = { key: null, direction: 'asc' };
 let vaChartInstance = null;
-let loadChartInstance = null; // 시스템 부하 차트 인스턴스
+let loadChartInstance = null;
 
 // --- DOM 요소 ---
 const elements = {
@@ -46,11 +46,12 @@ const elements = {
     visuals: {
         channelShares: document.getElementById('channel-shares'),
         methodShares: document.getElementById('method-shares'),
-        timeLoadCanvas: document.getElementById('timeLoadChart'), // Combo Chart Canvas
+        timeLoadCanvas: document.getElementById('timeLoadChart'),
         vaTimeChartCanvas: document.getElementById('vaTimeChart')
     },
     summaryTable: document.getElementById('monthly-summary-body'),
-    dataTable: document.getElementById('table-body')
+    dataTable: document.getElementById('table-body'),
+    tableHeaders: document.querySelectorAll('#table-headers th')
 };
 
 // --- 탭 전환 로직 ---
@@ -78,7 +79,9 @@ function parseData(text) {
         result.push({
             date: formatDate(chunk[0]),
             ym: ym,
-            time: formatTime(chunk[1]),
+            timeKey: formatTimeKey(chunk[1]),
+            timeDisplay: formatTimeDisplay(chunk[1]),
+            timeShort: formatTimeShort(chunk[1]),
             type: chunk[2],
             method: chunk[3],
             channel: chunk[4],
@@ -90,21 +93,68 @@ function parseData(text) {
 }
 
 function parseNum(v) { return parseInt(v.toString().replace(/,/g, '')) || 0; }
+
 function formatDate(d) {
     const s = d.toString().replace(/-/g, '');
     return s.length === 8 ? `${s.substring(0,4)}-${s.substring(4,6)}-${s.substring(6,8)}` : d;
 }
-function formatTime(t) {
+
+// 시간대별 정렬을 위한 24시간제 Key (예: "10:00", "10:30")
+function formatTimeKey(t) {
     const ts = t.toString();
     if (ts.includes(':')) {
         const p = ts.split(':');
-        const h = p[0].padStart(2, '0');
-        const m = p[1].padStart(2, '0');
-        return `${h}:${m} ~ ${h}:59`;
+        return `${p[0].padStart(2, '0')}:${p[1].padStart(2, '0')}`;
     }
-    const h = ts.padStart(2, '0');
-    return `${h}:00 ~ ${h}:29`;
+    return `${ts.padStart(2, '0')}:00`;
 }
+
+// 사용자 요청에 따른 정밀한 시간대 구간 텍스트 (예: "AM10시00분 ~ AM10시29분59초")
+function formatTimeDisplay(t) {
+    const ts = t.toString();
+    let hStr, mStr;
+    if (ts.includes(':')) {
+        const p = ts.split(':');
+        hStr = p[0];
+        mStr = p[1];
+    } else {
+        hStr = ts;
+        mStr = '00';
+    }
+    
+    let h = parseInt(hStr, 10);
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+    const padH = String(displayH).padStart(2, '0');
+    
+    if (mStr === '30') {
+        return `${ampm}${padH}시30분 ~ ${ampm}${padH}시59분59초`;
+    } else {
+        return `${ampm}${padH}시00분 ~ ${ampm}${padH}시29분59초`;
+    }
+}
+
+// 차트 X축이나 요약 위젯을 위한 짧은 텍스트 (예: "AM 10:00")
+function formatTimeShort(t) {
+    const ts = t.toString();
+    let hStr, mStr;
+    if (ts.includes(':')) {
+        const p = ts.split(':');
+        hStr = p[0];
+        mStr = p[1];
+    } else {
+        hStr = ts;
+        mStr = '00';
+    }
+    
+    let h = parseInt(hStr, 10);
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+    const padH = String(displayH).padStart(2, '0');
+    
+    return `${ampm} ${padH}:${mStr.padStart(2, '0')}`;
+}
+
 
 // --- 2. 분석 및 집계 ---
 function analyze() {
@@ -132,7 +182,11 @@ function analyze() {
 }
 
 function aggregate(rows) {
-    const res = { totalProc: 0, totalReg: 0, channelMap: {}, methodMap: {}, timeMap: {}, peakTime: '-' };
+    const res = { 
+        totalProc: 0, totalReg: 0, channelMap: {}, methodMap: {}, timeMap: {}, 
+        peakTimeShort: '-', peakTimeDisplay: '트랜잭션 최다 집중 구간' 
+    };
+    
     rows.forEach(r => {
         res.totalProc += r.procCount;
         res.totalReg += r.regCount;
@@ -142,13 +196,18 @@ function aggregate(rows) {
         if(methodName === '가상계좌입금') methodName = '가상계좌 신청';
         res.methodMap[methodName] = (res.methodMap[methodName] || 0) + r.procCount;
         
-        if (!res.timeMap[r.time]) res.timeMap[r.time] = { proc: 0, reg: 0 };
-        res.timeMap[r.time].proc += r.procCount;
-        res.timeMap[r.time].reg += r.regCount;
+        if (!res.timeMap[r.timeKey]) {
+            res.timeMap[r.timeKey] = { proc: 0, reg: 0, display: r.timeDisplay, short: r.timeShort };
+        }
+        res.timeMap[r.timeKey].proc += r.procCount;
+        res.timeMap[r.timeKey].reg += r.regCount;
     });
 
     const sortedTimes = Object.entries(res.timeMap).sort((a,b) => b[1].proc - a[1].proc);
-    if (sortedTimes.length > 0) res.peakTime = sortedTimes[0][0].split(' ~ ')[0];
+    if (sortedTimes.length > 0) {
+        res.peakTimeShort = sortedTimes[0][1].short;
+        res.peakTimeDisplay = sortedTimes[0][1].display;
+    }
 
     return res;
 }
@@ -162,12 +221,14 @@ function analyzeVAProcess(generalRows, vaActualRows) {
     const timeDepMap = {};
 
     appRows.forEach(r => {
-        const h = r.time.split(':')[0];
-        timeAppMap[h] = (timeAppMap[h] || 0) + r.procCount;
+        const k = r.timeKey;
+        if (!timeAppMap[k]) timeAppMap[k] = { count: 0, short: r.timeShort, display: r.timeDisplay };
+        timeAppMap[k].count += r.procCount;
     });
     vaActualRows.forEach(r => {
-        const h = r.time.split(':')[0];
-        timeDepMap[h] = (timeDepMap[h] || 0) + r.procCount;
+        const k = r.timeKey;
+        if (!timeDepMap[k]) timeDepMap[k] = { count: 0, short: r.timeShort, display: r.timeDisplay };
+        timeDepMap[k].count += r.procCount;
     });
 
     return {
@@ -199,7 +260,10 @@ function render(cur, ts, va) {
     
     elements.stats.totalProc.textContent = cur.totalProc.toLocaleString();
     elements.stats.totalReg.textContent = cur.totalReg.toLocaleString();
-    elements.stats.peakTime.textContent = cur.peakTime;
+    
+    // 최대 부하 시간대 표시 (Short Text 메인, Display Text 서브)
+    elements.stats.peakTime.textContent = cur.peakTimeShort;
+    elements.stats.peakTime.nextElementSibling.textContent = cur.peakTimeDisplay;
 
     const yoy = ts.yoy;
     elements.stats.yoyVal.textContent = yoy.proc.toLocaleString();
@@ -210,13 +274,13 @@ function render(cur, ts, va) {
     renderShare(elements.visuals.channelShares, cur.channelMap, cur.totalProc);
     renderShare(elements.visuals.methodShares, cur.methodMap, cur.totalProc);
 
-    // [고도화] 시스템 부하 및 처리 효율성 (Combo Chart)
+    // [시스템 부하 및 처리 효율성 차트]
     const sortedTimeKeys = Object.keys(cur.timeMap).sort();
-    const loadLabels = sortedTimeKeys.map(t => t.split(':')[0] + '시');
-    const procData = sortedTimeKeys.map(t => cur.timeMap[t].proc);
+    const loadLabels = sortedTimeKeys.map(k => cur.timeMap[k].short); // X축 라벨은 AM 10:00 형태
+    const procData = sortedTimeKeys.map(k => cur.timeMap[k].proc);
     
-    const effData = sortedTimeKeys.map(t => {
-        const d = cur.timeMap[t];
+    const effData = sortedTimeKeys.map(k => {
+        const d = cur.timeMap[k];
         if (d.reg === 0) return 0;
         return Math.min(((d.proc / d.reg) * 100), 100).toFixed(1);
     });
@@ -264,11 +328,24 @@ function render(cur, ts, va) {
                 y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '처리건수' } },
                 y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: '효율 (%)' }, min: 0, max: 105, grid: { drawOnChartArea: false } }
             },
-            plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'top' } }
+            plugins: { 
+                tooltip: { 
+                    mode: 'index', 
+                    intersect: false,
+                    callbacks: {
+                        title: function(context) {
+                            const idx = context[0].dataIndex;
+                            const k = sortedTimeKeys[idx];
+                            return cur.timeMap[k].display; // 툴팁 제목을 정밀 구간 텍스트로
+                        }
+                    }
+                }, 
+                legend: { position: 'top' } 
+            }
         }
     });
 
-    // 가상계좌 분석 차트
+    // [가상계좌 분석 차트]
     if (va.appCount > 0 || va.depCount > 0) {
         elements.vaSection.classList.remove('hidden');
         elements.stats.vaApp.textContent = va.appCount.toLocaleString() + '건';
@@ -276,9 +353,12 @@ function render(cur, ts, va) {
         elements.stats.vaConv.textContent = va.convRate + '%';
 
         const allHours = [...new Set([...Object.keys(va.timeAppMap), ...Object.keys(va.timeDepMap)])].sort();
-        const labels = allHours.map(h => h + '시');
-        const appData = allHours.map(h => va.timeAppMap[h] || 0);
-        const depData = allHours.map(h => va.timeDepMap[h] || 0);
+        const labels = allHours.map(k => {
+            const item = va.timeAppMap[k] || va.timeDepMap[k];
+            return item.short;
+        });
+        const appData = allHours.map(k => va.timeAppMap[k]?.count || 0);
+        const depData = allHours.map(k => va.timeDepMap[k]?.count || 0);
 
         if (vaChartInstance) vaChartInstance.destroy();
 
@@ -298,7 +378,21 @@ function render(cur, ts, va) {
                     x: { title: { display: true, text: '시간대', font: { weight: 'bold' } } },
                     y: { beginAtZero: true, title: { display: true, text: '처리건수 (건)', font: { weight: 'bold' } } }
                 },
-                plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } },
+                plugins: { 
+                    legend: { position: 'top' }, 
+                    tooltip: { 
+                        mode: 'index', 
+                        intersect: false,
+                        callbacks: {
+                            title: function(context) {
+                                const idx = context[0].dataIndex;
+                                const k = allHours[idx];
+                                const item = va.timeAppMap[k] || va.timeDepMap[k];
+                                return item.display; // 툴팁 제목을 정밀 구간 텍스트로
+                            }
+                        }
+                    } 
+                },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false }
             }
         });
@@ -334,9 +428,40 @@ function renderShare(container, dataMap, total) {
 
 function renderDataTable(data) {
     elements.dataTable.innerHTML = data.map(r => `
-        <tr><td>${r.date}</td><td class="time-window">${r.time}</td><td>${r.type}</td>
+        <tr><td>${r.date}</td><td class="time-window">${r.timeDisplay}</td><td>${r.type}</td>
         <td>${r.method}</td><td>${r.channel}</td><td class="num">${r.regCount.toLocaleString()}</td>
         <td class="num bold">${r.procCount.toLocaleString()}</td></tr>`).join('');
+}
+
+// --- 테이블 정렬 처리 ---
+if (elements.tableHeaders) {
+    elements.tableHeaders.forEach(th => {
+        th.addEventListener('click', () => {
+            const key = th.dataset.key;
+            if (sortConfig.key === key) {
+                sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortConfig.key = key;
+                sortConfig.direction = 'asc';
+            }
+
+            currentMonthRows.sort((a, b) => {
+                // 시간 필드의 경우 정렬을 위해 24시간제 Key(timeKey)를 사용
+                let sortKey = key === 'time' ? 'timeKey' : key;
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+                if (typeof valA === 'string') return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+            });
+
+            renderDataTable(currentMonthRows);
+            
+            elements.tableHeaders.forEach(h => {
+                h.classList.remove('sort-asc', 'sort-desc');
+                if (h.dataset.key === sortConfig.key) h.classList.add(sortConfig.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            });
+        });
+    });
 }
 
 // --- 4. 파일 처리 ---
