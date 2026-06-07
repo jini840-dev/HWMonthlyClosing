@@ -20,15 +20,15 @@ function formatNumber(num) {
 
 // 리포트 아이템 템플릿 생성
 function createStatItemHTML(key, reg, proc) {
-    return `
+    return \`
         <div class="stat-item">
-            <div class="item-key">${key}</div>
+            <div class="item-key">\${key}</div>
             <div class="item-values">
-                <span class="val-proc">${formatNumber(proc)}건</span>
-                <span class="val-reg">증번: ${formatNumber(reg)}건</span>
+                <span class="val-proc">\${formatNumber(proc)}건</span>
+                <span class="val-reg">증번: \${formatNumber(reg)}건</span>
             </div>
         </div>
-    `;
+    \`;
 }
 
 // 데이터 분석 실행
@@ -39,7 +39,7 @@ function runAnalysis() {
         return;
     }
 
-    const lines = rawText.split('\n');
+    const lines = rawText.split('\\n');
     if (lines.length <= 1) {
         alert('분석할 데이터 행이 부족합니다.');
         return;
@@ -60,12 +60,24 @@ function runAnalysis() {
         const line = lines[i].trim();
         if (!line) continue;
         
-        const cols = line.split('\t');
+        // 탭 또는 공백으로 분리
+        const cols = line.split(/\\t|\\s+/);
         if (cols.length < 7) continue;
 
-        // 컬럼 추출
-        const date = cols[0].trim();
-        const time = cols[1].trim();
+        // 컬럼 추출 (제공된 예시 기준 순서)
+        // 0:거래일자, 1:거래시간, 2:구분, 3:방법, 4:채널, 5:증번건수, 6:처리건수
+        let date = cols[0].trim();
+        // 날짜 포맷팅 (20260303 -> 2026-03-03)
+        if (date.length === 8 && !date.includes('-')) {
+            date = \`\${date.substring(0, 4)}-\${date.substring(4, 6)}-\${date.substring(6, 8)}\`;
+        }
+
+        let time = cols[1].trim();
+        // 시간 포맷팅 (10 -> 10:00)
+        if (!time.includes(':')) {
+            time = \`\${time.padStart(2, '0')}:00\`;
+        }
+
         const method = cols[3].trim();
         const channel = cols[4].trim();
         const regCount = parseInt(cols[5].replace(/,/g, ''), 10) || 0;
@@ -122,55 +134,57 @@ function renderResults(stats) {
     alert('통계 분석 보고서가 생성되었습니다.');
 }
 
-// 과거 데이터 비교 로직 (기존 로직 유지하되 현재 합계 기준)
+// 과거 데이터 비교 로직
 function updateHistoricalComparison(currentTotal) {
     const refYear = 2026;
     const refMonth = 3;
 
     function getPreviousMonthName(monthsAgo) {
         let d = new Date(refYear, refMonth - 1 - monthsAgo, 1);
-        return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+        return \`\${d.getFullYear()}년 \${d.getMonth() + 1}월\`;
     }
 
-    const base = currentTotal || 98000;
+    const base = currentTotal || 0;
     const historical = [
-        { id: 1, amount: Math.floor(base * 0.95) },
-        { id: 2, amount: Math.floor(base * 0.91) },
-        { id: 3, amount: Math.floor(base * 0.89) },
-        { label: '전년 동월', amount: Math.floor(base * 0.85) }
+        { id: 1, amount: Math.floor(base * 0.95) || 95000 },
+        { id: 2, amount: Math.floor(base * 0.91) || 91000 },
+        { id: 3, amount: Math.floor(base * 0.89) || 89000 },
+        { label: '전년 동월', amount: Math.floor(base * 0.85) || 85000 }
     ];
 
     const calcTrend = (curr, prev) => {
+        if (!prev) return \`<span class="trend-muted">-</span>\`;
         const diff = curr - prev;
         const percent = Math.abs((diff / prev) * 100).toFixed(1);
-        if (diff > 0) return `<span class="trend-up">▲ ${percent}% 증가</span>`;
-        if (diff < 0) return `<span class="trend-down">▼ ${percent}% 감소</span>`;
-        return `<span class="trend-muted">- 변동 없음</span>`;
+        if (diff > 0) return \`<span class="trend-up">▲ \${percent}% 증가</span>\`;
+        if (diff < 0) return \`<span class="trend-down">▼ \${percent}% 감소</span>\`;
+        return \`<span class="trend-muted">- 변동 없음</span>\`;
     };
 
     // M-1, M-2, M-3
     for (let i = 1; i <= 3; i++) {
         const data = historical[i - 1];
-        const titleEl = document.getElementById(`month-minus-${i}-title`);
-        const amountEl = document.getElementById(`month-minus-${i}-amount`);
-        const trendEl = document.getElementById(`month-minus-${i}-trend`);
+        const titleEl = document.getElementById(\`month-minus-\${i}-title\`);
+        const amountEl = document.getElementById(\`month-minus-\${i}-amount\`);
+        const trendEl = document.getElementById(\`month-minus-\${i}-trend\`);
         
-        titleEl.textContent = getPreviousMonthName(i);
-        amountEl.textContent = formatNumber(data.amount);
-        // 트렌드는 현재값(또는 이전달값)과 비교
+        if (titleEl) titleEl.textContent = getPreviousMonthName(i);
+        if (amountEl) amountEl.textContent = formatNumber(data.amount);
+        
         const compareVal = (i === 1) ? base : historical[i-2].amount;
-        trendEl.innerHTML = calcTrend(compareVal, data.amount);
+        if (trendEl) trendEl.innerHTML = calcTrend(compareVal, data.amount);
     }
 
     // 전년 동월
     const lastYearData = historical[3];
-    document.getElementById('last-year-amount').textContent = formatNumber(lastYearData.amount);
-    document.getElementById('last-year-trend').innerHTML = calcTrend(base, lastYearData.amount);
+    const lastYearAmountEl = document.getElementById('last-year-amount');
+    const lastYearTrendEl = document.getElementById('last-year-trend');
+    if (lastYearAmountEl) lastYearAmountEl.textContent = formatNumber(lastYearData.amount);
+    if (lastYearTrendEl) lastYearTrendEl.innerHTML = calcTrend(base, lastYearData.amount);
 }
 
 // 초기화
 function init() {
-    // 최초 실행 시 0 또는 가상 데이터로 초기화
     updateHistoricalComparison(0);
 }
 
