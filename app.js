@@ -4,39 +4,66 @@
 
 // --- 전역 상태 ---
 let allData = [];
+let vaActualData = [];
 let currentMonthRows = [];
 let sortConfig = { key: null, direction: 'asc' };
 
 // --- DOM 요소 ---
 const elements = {
-    input: document.getElementById('raw-data-input'),
+    inputs: {
+        general: document.getElementById('raw-data-input-general'),
+        va: document.getElementById('raw-data-input-va')
+    },
     processBtn: document.getElementById('process-data-btn'),
     loadBtn: document.getElementById('load-raw-btn'),
     clearBtn: document.getElementById('clear-btn'),
-    fileInput: document.getElementById('file-upload-input'),
-    fileBtn: document.getElementById('file-upload-btn'),
-    fileNameDisplay: document.getElementById('file-name-display'),
+    fileInputs: {
+        general: document.getElementById('file-upload-input-general'),
+        va: document.getElementById('file-upload-input-va')
+    },
+    fileNameDisplays: {
+        general: document.getElementById('file-name-general'),
+        va: document.getElementById('file-name-va')
+    },
+    tabBtns: document.querySelectorAll('.tab-btn'),
+    tabPanes: document.querySelectorAll('.tab-pane'),
     dashboard: document.getElementById('dashboard-view'),
     errorBox: document.getElementById('error-log-container'),
     errorList: document.getElementById('error-list'),
+    vaSection: document.getElementById('va-correlation-section'),
     stats: {
         totalProc: document.getElementById('stat-total-proc'),
         totalReg: document.getElementById('stat-total-reg'),
         peakTime: document.getElementById('stat-peak-time'),
         yoyVal: document.getElementById('stat-yoy-val'),
-        yoyDelta: document.getElementById('stat-yoy-delta')
+        yoyDelta: document.getElementById('stat-yoy-delta'),
+        vaApp: document.getElementById('va-app-count'),
+        vaDep: document.getElementById('va-dep-count'),
+        vaConv: document.getElementById('va-conv-rate')
     },
     visuals: {
         channelShares: document.getElementById('channel-shares'),
         methodShares: document.getElementById('method-shares'),
-        timeLoad: document.getElementById('time-load-analysis')
+        timeLoad: document.getElementById('time-load-analysis'),
+        vaTimeComp: document.getElementById('va-time-comparison')
     },
     summaryTable: document.getElementById('monthly-summary-body'),
     dataTable: document.getElementById('table-body')
 };
 
-// --- 1. 데이터 파서 ---
+// --- 탭 전환 로직 ---
+elements.tabBtns.forEach(btn => {
+    btn.onclick = () => {
+        elements.tabBtns.forEach(b => b.classList.remove('active'));
+        elements.tabPanes.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-content-${btn.dataset.tab}`).classList.add('active');
+    };
+});
+
+// --- 1. 데이터 파서 (범용) ---
 function parseData(text) {
+    if (!text) return [];
     const lines = text.split(/\n/).map(l => l.trim()).filter(l => l !== '');
     if (lines.length < 14) return [];
 
@@ -77,23 +104,14 @@ function formatTime(t) {
     return `${h}:00 ~ ${h}:29`;
 }
 
-// --- 2. 데이터 검증 ---
-function validate(rows) {
-    const errs = [];
-    rows.forEach((r, i) => {
-        if (r.type === '개별납' && (!r.channel || r.channel === '-' || r.channel === '미지정')) {
-            errs.push(`행 ${i+1}: 개별납 데이터에 유효한 채널이 없습니다.`);
-        }
-    });
-    return errs;
-}
-
-// --- 3. 분석 및 집계 ---
+// --- 2. 분석 및 집계 ---
 function analyze() {
-    const raw = elements.input.value;
-    allData = parseData(raw);
+    // 1. 일반 마감 데이터 분석
+    const generalText = elements.inputs.general.value;
+    allData = parseData(generalText);
+    
     if (allData.length === 0) {
-        alert('분석할 데이터가 없습니다. 형식을 확인해주세요.');
+        alert('기본 마감 통계 데이터를 입력해주세요.');
         return;
     }
 
@@ -101,10 +119,21 @@ function analyze() {
     const currentYM = yms[0];
     currentMonthRows = allData.filter(d => d.ym === currentYM);
 
+    // 2. 가상계좌 실제 입금 데이터 분석
+    const vaText = elements.inputs.va.value;
+    vaActualData = parseData(vaText);
+    const vaCurrentRows = vaActualData.filter(d => d.ym === currentYM);
+
+    // [당월 일반 분석]
     const currentStats = aggregate(currentMonthRows);
+    
+    // [시계열 분석]
     const tsResults = aggregateTimeSeries(allData, currentYM);
 
-    render(currentStats, tsResults);
+    // [가상계좌 상관관계 분석]
+    const vaStats = analyzeVAProcess(currentMonthRows, vaCurrentRows);
+
+    render(currentStats, tsResults, vaStats);
 }
 
 function aggregate(rows) {
@@ -113,7 +142,12 @@ function aggregate(rows) {
         res.totalProc += r.procCount;
         res.totalReg += r.regCount;
         res.channelMap[r.channel] = (res.channelMap[r.channel] || 0) + r.procCount;
-        res.methodMap[r.method] = (res.methodMap[r.method] || 0) + r.procCount;
+        
+        // 기존 '가상계좌입금' 명칭을 분석 단계에서 '가상계좌 신청'으로 내부 처리 (UI 반영은 renderShare에서)
+        let methodName = r.method;
+        if(methodName === '가상계좌입금') methodName = '가상계좌 신청';
+        res.methodMap[methodName] = (res.methodMap[methodName] || 0) + r.procCount;
+        
         res.timeMap[r.time] = (res.timeMap[r.time] || 0) + r.procCount;
     });
 
@@ -123,53 +157,101 @@ function aggregate(rows) {
     return res;
 }
 
+function analyzeVAProcess(generalRows, vaActualRows) {
+    // 가상계좌 신청건 (방법 필드에서 추출)
+    const appRows = generalRows.filter(r => r.method === '가상계좌입금');
+    const appCount = appRows.reduce((a, b) => a + b.procCount, 0);
+    const depCount = vaActualRows.reduce((a, b) => a + b.procCount, 0);
+
+    // 시간대별 분포 맵 (00~23)
+    const timeAppMap = {};
+    const timeDepMap = {};
+
+    appRows.forEach(r => {
+        const h = r.time.split(':')[0];
+        timeAppMap[h] = (timeAppMap[h] || 0) + r.procCount;
+    });
+    vaActualRows.forEach(r => {
+        const h = r.time.split(':')[0];
+        timeDepMap[h] = (timeDepMap[h] || 0) + r.procCount;
+    });
+
+    return {
+        appCount,
+        depCount,
+        convRate: appCount > 0 ? ((depCount / appCount) * 100).toFixed(1) : 0,
+        timeAppMap,
+        timeDepMap
+    };
+}
+
 function aggregateTimeSeries(data, curYM) {
     const getYM = (base, offset) => {
         const d = new Date(parseInt(base.substring(0,4)), parseInt(base.substring(4,6)) - 1 - offset, 1);
-        const y = d.getFullYear();
-        const m = (d.getMonth() + 1).toString().padStart(2, '0');
-        return y + m;
+        return d.getFullYear() + (d.getMonth() + 1).toString().padStart(2, '0');
     };
-
-    const targetYMs = {
-        cur: curYM, m1: getYM(curYM, 1), m2: getYM(curYM, 2), m3: getYM(curYM, 3), yoy: getYM(curYM, 12)
-    };
-
+    const targetYMs = { cur: curYM, m1: getYM(curYM, 1), m2: getYM(curYM, 2), m3: getYM(curYM, 3), yoy: getYM(curYM, 12) };
     const summary = {};
     for (const [key, ym] of Object.entries(targetYMs)) {
         const filtered = data.filter(d => d.ym === ym);
-        summary[key] = {
-            ym: ym,
-            proc: filtered.reduce((a, b) => a + b.procCount, 0),
-            reg: filtered.reduce((a, b) => a + b.regCount, 0)
-        };
+        summary[key] = { ym, proc: filtered.reduce((a, b) => a + b.procCount, 0), reg: filtered.reduce((a, b) => a + b.regCount, 0) };
     }
     return summary;
 }
 
-// --- 4. UI 렌더링 ---
-function render(cur, ts) {
+// --- 3. UI 렌더링 ---
+function render(cur, ts, va) {
     elements.dashboard.classList.remove('hidden');
     
+    // 일반 스탯
     elements.stats.totalProc.textContent = cur.totalProc.toLocaleString();
     elements.stats.totalReg.textContent = cur.totalReg.toLocaleString();
     elements.stats.peakTime.textContent = cur.peakTime;
 
+    // YoY
     const yoy = ts.yoy;
     elements.stats.yoyVal.textContent = yoy.proc.toLocaleString();
     const yoyDiff = cur.totalProc - yoy.proc;
     const yoyPer = yoy.proc > 0 ? ((yoyDiff / yoy.proc) * 100).toFixed(1) : 0;
     elements.stats.yoyDelta.innerHTML = `<span class="${yoyDiff >= 0 ? 'up' : 'down'}">${yoyDiff >= 0 ? '▲' : '▼'} ${Math.abs(yoyPer)}%</span>`;
 
+    // 점유율 차트
     renderShare(elements.visuals.channelShares, cur.channelMap, cur.totalProc);
     renderShare(elements.visuals.methodShares, cur.methodMap, cur.totalProc);
 
+    // 시간대별 부하
     const maxVal = Math.max(...Object.values(cur.timeMap), 1);
     elements.visuals.timeLoad.innerHTML = Object.keys(cur.timeMap).sort().map(t => {
         const h = (cur.timeMap[t] / maxVal) * 100;
         return `<div class="load-bar-wrapper"><div class="load-bar" style="height:${h}%"></div><div class="load-label">${t.split(':')[0]}</div></div>`;
     }).join('');
 
+    // [신규] 가상계좌 분석 결과
+    if (va.appCount > 0 || va.depCount > 0) {
+        elements.vaSection.classList.remove('hidden');
+        elements.stats.vaApp.textContent = va.appCount.toLocaleString() + '건';
+        elements.stats.vaDep.textContent = va.depCount.toLocaleString() + '건';
+        elements.stats.vaConv.textContent = va.convRate + '%';
+
+        // 이중 바 차트 (신청 vs 입금)
+        const allHours = [...new Set([...Object.keys(va.timeAppMap), ...Object.keys(va.timeDepMap)])].sort();
+        const maxVA = Math.max(...Object.values(va.timeAppMap), ...Object.values(va.timeDepMap), 1);
+        
+        elements.visuals.vaTimeComp.innerHTML = allHours.map(h => {
+            const hApp = ((va.timeAppMap[h] || 0) / maxVA) * 100;
+            const hDep = ((va.timeDepMap[h] || 0) / maxVA) * 100;
+            return `
+                <div class="load-bar-wrapper dual">
+                    <div class="dual-bars">
+                        <div class="load-bar va-app" style="height:${hApp}%" title="신청: ${va.timeAppMap[h] || 0}건"></div>
+                        <div class="load-bar va-dep" style="height:${hDep}%" title="입금: ${va.timeDepMap[h] || 0}건"></div>
+                    </div>
+                    <div class="load-label">${h}</div>
+                </div>`;
+        }).join('');
+    }
+
+    // 월별 요약 테이블
     const summaryRows = [
         { label: '당월', data: ts.cur, prev: ts.m1 },
         { label: '전월(M-1)', data: ts.m1, prev: ts.m2 },
@@ -184,14 +266,6 @@ function render(cur, ts) {
     }).join('');
 
     renderDataTable(currentMonthRows);
-
-    const errs = validate(currentMonthRows);
-    if (errs.length > 0) {
-        elements.errorBox.classList.remove('hidden');
-        elements.errorList.innerHTML = errs.map(e => `<li>${e}</li>`).join('');
-    } else {
-        elements.errorBox.classList.add('hidden');
-    }
 }
 
 function renderShare(container, dataMap, total) {
@@ -210,54 +284,41 @@ function renderDataTable(data) {
         <td class="num bold">${r.procCount.toLocaleString()}</td></tr>`).join('');
 }
 
-// --- 5. 파일 업로드 처리 엔진 ---
-elements.fileBtn.onclick = () => elements.fileInput.click();
-
-elements.fileInput.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    elements.fileNameDisplay.textContent = file.name;
-    const ext = file.name.split('.').pop().toLowerCase();
-
-    // 엑셀 파일 처리 (.xlsx, .xls)
-    if (ext === 'xlsx' || ext === 'xls') {
+// --- 4. 파일 처리 ---
+const setupFileUpload = (btn, input, display, targetTextarea) => {
+    btn.onclick = () => input.click();
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        display.textContent = file.name;
+        const ext = file.name.split('.').pop().toLowerCase();
         const reader = new FileReader();
-        reader.onload = (evt) => {
-            const data = new Uint8Array(evt.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            // 엑셀 데이터를 세로 줄바꿈 텍스트로 변환
-            const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-            const flatText = json.flat().filter(cell => cell !== null && cell !== undefined).join('\n');
-            elements.input.value = flatText;
-            alert('엑셀 파일이 텍스트로 변환되어 로드되었습니다.');
-        };
-        reader.readAsArrayBuffer(file);
-    } 
-    // 그 외 파일 (확장자 없음, 텍스트 등)
-    else {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            elements.input.value = evt.target.result;
-            alert('파일 내용이 로드되었습니다.');
-        };
-        reader.readAsText(file);
-    }
+        if (ext === 'xlsx' || ext === 'xls') {
+            reader.onload = (evt) => {
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                targetTextarea.value = json.flat().filter(c => c !== null).join('\n');
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.onload = (evt) => { targetTextarea.value = evt.target.result; };
+            reader.readAsText(file);
+        }
+    };
 };
+
+setupFileUpload(elements.fileBtn-general, elements.fileInputs.general, elements.fileNameDisplays.general, elements.inputs.general);
+setupFileUpload(elements.fileBtn-va, elements.fileInputs.va, elements.fileNameDisplays.va, elements.inputs.va);
 
 // --- 나머지 이벤트 ---
 elements.processBtn.onclick = analyze;
 elements.loadBtn.onclick = async () => {
-    try {
-        const res = await fetch('/rawdata');
-        elements.input.value = await res.text();
-        alert('샘플 데이터 로드 완료');
-    } catch (err) { alert('로드 실패: ' + err.message); }
+    const res = await fetch('/rawdata');
+    elements.inputs.general.value = await res.text();
+    alert('기본 샘플 데이터 로드 완료');
 };
 elements.clearBtn.onclick = () => {
-    elements.input.value = '';
-    elements.fileNameDisplay.textContent = '선택된 파일 없음';
+    elements.inputs.general.value = '';
+    elements.inputs.va.value = '';
     elements.dashboard.classList.add('hidden');
-    elements.errorBox.classList.add('hidden');
 };

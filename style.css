@@ -113,3 +113,24 @@ th.sortable:hover { background: #f1f5f9; }
 .hidden { display: none; }
 
 @media (max-width: 1024px) { .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+
+/* Tabs */
+.tab-buttons { display: flex; gap: 5px; margin-top: 10px; }
+.tab-btn { padding: 8px 16px; border: 1px solid var(--border-color); background: #f8fafc; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 0.85rem; color: var(--secondary-color); }
+.tab-btn.active { background: white; border-bottom-color: transparent; color: var(--primary-color); font-weight: 700; }
+.tab-pane { display: none; padding: 15px; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px; }
+.tab-pane.active { display: block; }
+
+/* VA Correlation Analysis */
+.va-analysis-section { border-top: 4px solid #f97316; }
+.va-grid { display: grid; grid-template-columns: 250px 1fr; gap: 2rem; margin-top: 15px; }
+.stat-mini { display: flex; flex-direction: column; margin-bottom: 15px; padding: 10px; background: #fff7ed; border-radius: 8px; }
+.stat-mini span { font-size: 0.75rem; color: #9a3412; }
+.stat-mini strong { font-size: 1.2rem; color: #ea580c; }
+
+.dual-bars { display: flex; align-items: flex-end; gap: 2px; height: 100%; width: 100%; }
+.load-bar.va-app { background: #93c5fd; }
+.load-bar.va-dep { background: #fb923c; }
+
+.up { color: var(--success-color); font-weight: 700; }
+.down { color: var(--error-color); font-weight: 700; }
