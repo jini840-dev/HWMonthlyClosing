@@ -40,7 +40,7 @@
             <!-- 분석 결과 대시보드 -->
             <div id="dashboard-view" class="dashboard-grid hidden">
                 
-                <!-- 1. 당월 요약 위젯 (최대 부하 시간대 포함) -->
+                <!-- 1. 당월 요약 위젯 -->
                 <section class="summary-section grid-3">
                     <div class="card widget">
                         <div class="widget-label">당월 총 처리건수</div>
@@ -59,14 +59,18 @@
                     </div>
                 </section>
 
-                <!-- 2. 채널별 점유율 & 3. 시간대별 부하 분석 -->
-                <div class="analysis-row grid-2">
+                <!-- 2. 채널별 점유율 & 신규: 입출금방법별 분석 & 3. 시간대별 부하 분석 -->
+                <div class="analysis-row grid-3">
                     <div class="card chart-card">
                         <h3>채널별 점유율 (당월)</h3>
                         <div id="channel-shares" class="share-list"></div>
                     </div>
                     <div class="card chart-card">
-                        <h3>시간대별 부하 분석 (당월 30분 단위)</h3>
+                        <h3>입출금방법별 점유율 (당월)</h3>
+                        <div id="method-shares" class="share-list"></div>
+                    </div>
+                    <div class="card chart-card">
+                        <h3>시간대별 부하 분석 (당월)</h3>
                         <div id="time-load-analysis" class="load-bars"></div>
                     </div>
                 </div>
