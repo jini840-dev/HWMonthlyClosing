@@ -86,22 +86,25 @@
                         <h3>입출금방법별 점유율 (당월)</h3>
                         <div id="method-shares" class="share-list"></div>
                     </div>
-                    <div class="card chart-card">
-                        <h3>시간대별 부하 분석 (당월)</h3>
-                        <div id="time-load-analysis" class="load-bars"></div>
+                    <!-- [고도화] 시간대별 부하 분석 (Chart.js) -->
+                    <div class="card chart-card" style="display: flex; flex-direction: column;">
+                        <h3>시스템 부하 및 효율성 분석 (당월)</h3>
+                        <div style="flex: 1; position: relative; min-height: 250px;">
+                            <canvas id="timeLoadChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
                 <section id="va-correlation-section" class="va-analysis-section card hidden">
-                    <h3>가상계좌 프로세스 분석 (신청 vs 실제입금)</h3>
+                    <h3>가상계좌 프로세스 시간대별 비교 (신청 vs 입금)</h3>
                     <div class="va-grid" style="display: flex; gap: 2rem; margin-top: 15px;">
                         <div class="va-stats" style="flex: 0 0 250px;">
                             <div class="stat-mini">
-                                <span>가상계좌 신청(당월)</span>
+                                <span>가상계좌 신청 (당월)</span>
                                 <strong id="va-app-count">0건</strong>
                             </div>
                             <div class="stat-mini">
-                                <span>실제 보험료 입금(당월)</span>
+                                <span>실제 보험료 입금 (당월)</span>
                                 <strong id="va-dep-count">0건</strong>
                             </div>
                             <div class="stat-mini">

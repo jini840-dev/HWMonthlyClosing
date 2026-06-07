@@ -7,7 +7,8 @@ let allData = [];
 let vaActualData = [];
 let currentMonthRows = [];
 let sortConfig = { key: null, direction: 'asc' };
-let vaChartInstance = null; // Chart.js 인스턴스 보관용
+let vaChartInstance = null;
+let loadChartInstance = null; // 시스템 부하 차트 인스턴스
 
 // --- DOM 요소 ---
 const elements = {
@@ -45,8 +46,8 @@ const elements = {
     visuals: {
         channelShares: document.getElementById('channel-shares'),
         methodShares: document.getElementById('method-shares'),
-        timeLoad: document.getElementById('time-load-analysis'),
-        vaTimeChartCanvas: document.getElementById('vaTimeChart') // Chart.js Canvas
+        timeLoadCanvas: document.getElementById('timeLoadChart'), // Combo Chart Canvas
+        vaTimeChartCanvas: document.getElementById('vaTimeChart')
     },
     summaryTable: document.getElementById('monthly-summary-body'),
     dataTable: document.getElementById('table-body')
@@ -62,7 +63,7 @@ elements.tabBtns.forEach(btn => {
     };
 });
 
-// --- 1. 데이터 파서 (범용) ---
+// --- 1. 데이터 파서 ---
 function parseData(text) {
     if (!text) return [];
     const lines = text.split(/\n/).map(l => l.trim()).filter(l => l !== '');
@@ -141,17 +142,19 @@ function aggregate(rows) {
         if(methodName === '가상계좌입금') methodName = '가상계좌 신청';
         res.methodMap[methodName] = (res.methodMap[methodName] || 0) + r.procCount;
         
-        res.timeMap[r.time] = (res.timeMap[r.time] || 0) + r.procCount;
+        if (!res.timeMap[r.time]) res.timeMap[r.time] = { proc: 0, reg: 0 };
+        res.timeMap[r.time].proc += r.procCount;
+        res.timeMap[r.time].reg += r.regCount;
     });
 
-    const sortedTimes = Object.entries(res.timeMap).sort((a,b) => b[1] - a[1]);
+    const sortedTimes = Object.entries(res.timeMap).sort((a,b) => b[1].proc - a[1].proc);
     if (sortedTimes.length > 0) res.peakTime = sortedTimes[0][0].split(' ~ ')[0];
 
     return res;
 }
 
 function analyzeVAProcess(generalRows, vaActualRows) {
-    const appRows = generalRows.filter(r => r.method === '가상계좌입금');
+    const appRows = generalRows.filter(r => r.method === '가상계좌입금' || r.method === '가상계좌 신청');
     const appCount = appRows.reduce((a, b) => a + b.procCount, 0);
     const depCount = vaActualRows.reduce((a, b) => a + b.procCount, 0);
 
@@ -207,12 +210,65 @@ function render(cur, ts, va) {
     renderShare(elements.visuals.channelShares, cur.channelMap, cur.totalProc);
     renderShare(elements.visuals.methodShares, cur.methodMap, cur.totalProc);
 
-    const maxVal = Math.max(...Object.values(cur.timeMap), 1);
-    elements.visuals.timeLoad.innerHTML = Object.keys(cur.timeMap).sort().map(t => {
-        const h = (cur.timeMap[t] / maxVal) * 100;
-        return `<div class="load-bar-wrapper"><div class="load-bar" style="height:${h}%"></div><div class="load-label">${t.split(':')[0]}</div></div>`;
-    }).join('');
+    // [고도화] 시스템 부하 및 처리 효율성 (Combo Chart)
+    const sortedTimeKeys = Object.keys(cur.timeMap).sort();
+    const loadLabels = sortedTimeKeys.map(t => t.split(':')[0] + '시');
+    const procData = sortedTimeKeys.map(t => cur.timeMap[t].proc);
+    
+    const effData = sortedTimeKeys.map(t => {
+        const d = cur.timeMap[t];
+        if (d.reg === 0) return 0;
+        return Math.min(((d.proc / d.reg) * 100), 100).toFixed(1);
+    });
 
+    if (loadChartInstance) loadChartInstance.destroy();
+    
+    const maxProc = Math.max(...procData, 1);
+    const bgColors = procData.map(val => {
+        if (val > maxProc * 0.9) return 'rgba(239, 68, 68, 0.7)'; // Red
+        if (val > maxProc * 0.7) return 'rgba(245, 158, 11, 0.7)'; // Orange
+        return 'rgba(59, 130, 246, 0.5)'; // Blue
+    });
+
+    const ctxLoad = elements.visuals.timeLoadCanvas.getContext('2d');
+    loadChartInstance = new Chart(ctxLoad, {
+        type: 'bar',
+        data: {
+            labels: loadLabels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: '처리 효율성 (%)',
+                    data: effData,
+                    borderColor: '#10b981',
+                    backgroundColor: '#10b981',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                },
+                {
+                    type: 'bar',
+                    label: '시스템 부하 (처리건수)',
+                    data: procData,
+                    backgroundColor: bgColors,
+                    borderRadius: 4,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { display: false } },
+                y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '처리건수' } },
+                y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: '효율 (%)' }, min: 0, max: 105, grid: { drawOnChartArea: false } }
+            },
+            plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'top' } }
+        }
+    });
+
+    // 가상계좌 분석 차트
     if (va.appCount > 0 || va.depCount > 0) {
         elements.vaSection.classList.remove('hidden');
         elements.stats.vaApp.textContent = va.appCount.toLocaleString() + '건';
@@ -220,60 +276,29 @@ function render(cur, ts, va) {
         elements.stats.vaConv.textContent = va.convRate + '%';
 
         const allHours = [...new Set([...Object.keys(va.timeAppMap), ...Object.keys(va.timeDepMap)])].sort();
-        
-        // Chart.js 데이터 준비
         const labels = allHours.map(h => h + '시');
         const appData = allHours.map(h => va.timeAppMap[h] || 0);
         const depData = allHours.map(h => va.timeDepMap[h] || 0);
 
-        if (vaChartInstance) {
-            vaChartInstance.destroy();
-        }
+        if (vaChartInstance) vaChartInstance.destroy();
 
-        const ctx = elements.visuals.vaTimeChartCanvas.getContext('2d');
-        vaChartInstance = new Chart(ctx, {
+        const ctxVA = elements.visuals.vaTimeChartCanvas.getContext('2d');
+        vaChartInstance = new Chart(ctxVA, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    {
-                        label: '가상계좌 신청',
-                        data: appData,
-                        borderColor: '#3b82f6', // 파란색
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#3b82f6'
-                    },
-                    {
-                        label: '실제 보험료 입금',
-                        data: depData,
-                        borderColor: '#f97316', // 주황색
-                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#f97316'
-                    }
+                    { label: '가상계좌 신청', data: appData, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.4 },
+                    { label: '실제 보험료 입금', data: depData, borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
-                    x: {
-                        title: { display: true, text: '시간대', font: { weight: 'bold' } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        title: { display: true, text: '처리건수 (건)', font: { weight: 'bold' } }
-                    }
+                    x: { title: { display: true, text: '시간대', font: { weight: 'bold' } } },
+                    y: { beginAtZero: true, title: { display: true, text: '처리건수 (건)', font: { weight: 'bold' } } }
                 },
-                plugins: {
-                    legend: { position: 'top' },
-                    tooltip: { mode: 'index', intersect: false }
-                },
+                plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false }
             }
         });
@@ -359,8 +384,6 @@ elements.clearBtn.onclick = () => {
     elements.fileNameDisplays.general.textContent = '선택된 파일 없음';
     elements.fileNameDisplays.va.textContent = '선택된 파일 없음';
     elements.dashboard.classList.add('hidden');
-    if (vaChartInstance) {
-        vaChartInstance.destroy();
-        vaChartInstance = null;
-    }
+    if (vaChartInstance) { vaChartInstance.destroy(); vaChartInstance = null; }
+    if (loadChartInstance) { loadChartInstance.destroy(); loadChartInstance = null; }
 };
