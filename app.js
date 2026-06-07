@@ -1,5 +1,5 @@
 // Constants
-const targetAmount = 100000; // 과거 데이터 비교를 위한 기준치 유지
+const targetAmount = 100000;
 
 // DOM Elements
 const processDataBtn = document.getElementById('process-data-btn');
@@ -39,10 +39,18 @@ function runAnalysis() {
         return;
     }
 
-    const lines = rawText.split('\\n');
-    if (lines.length <= 1) {
-        alert('분석할 데이터 행이 부족합니다.');
+    // 모든 공백(줄바꿈, 탭, 스페이스)을 기준으로 분리하여 토큰 배열 생성
+    const allTokens = rawText.split(/\s+/).filter(t => t.trim().length > 0);
+    
+    if (allTokens.length < 7) {
+        alert('분석할 데이터가 부족합니다. (최소 7개의 항목 필요)');
         return;
+    }
+
+    // 헤더 식별 및 제거 (첫 번째 토큰이 '거래일자'를 포함하면 헤더 7개 건너뜀)
+    let startIndex = 0;
+    if (allTokens[0].includes('거래일자')) {
+        startIndex = 7;
     }
 
     // 집계용 객체
@@ -55,33 +63,26 @@ function runAnalysis() {
         byChannel: {}
     };
 
-    // 첫 줄(헤더) 제외하고 순회
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        // 탭 또는 공백으로 분리
-        const cols = line.split(/\\t|\\s+/);
-        if (cols.length < 7) continue;
+    // 7개 항목을 한 세트로 묶어서 순회
+    for (let i = startIndex; i < allTokens.length; i += 7) {
+        const chunk = allTokens.slice(i, i + 7);
+        if (chunk.length < 7) break;
 
-        // 컬럼 추출 (제공된 예시 기준 순서)
-        // 0:거래일자, 1:거래시간, 2:구분, 3:방법, 4:채널, 5:증번건수, 6:처리건수
-        let date = cols[0].trim();
-        // 날짜 포맷팅 (20260303 -> 2026-03-03)
+        // 컬럼 순서: 0:거래일자, 1:거래시간, 2:구분, 3:방법, 4:채널, 5:증번건수, 6:처리건수
+        let date = chunk[0].trim();
         if (date.length === 8 && !date.includes('-')) {
             date = \`\${date.substring(0, 4)}-\${date.substring(4, 6)}-\${date.substring(6, 8)}\`;
         }
 
-        let time = cols[1].trim();
-        // 시간 포맷팅 (10 -> 10:00)
+        let time = chunk[1].trim();
         if (!time.includes(':')) {
             time = \`\${time.padStart(2, '0')}:00\`;
         }
 
-        const method = cols[3].trim();
-        const channel = cols[4].trim();
-        const regCount = parseInt(cols[5].replace(/,/g, ''), 10) || 0;
-        const procCount = parseInt(cols[6].replace(/,/g, ''), 10) || 0;
+        const method = chunk[3].trim();
+        const channel = chunk[4].trim();
+        const regCount = parseInt(chunk[5].replace(/,/g, ''), 10) || 0;
+        const procCount = parseInt(chunk[6].replace(/,/g, ''), 10) || 0;
 
         // 전체 합계
         stats.totalReg += regCount;
@@ -105,11 +106,9 @@ function runAnalysis() {
 
 // 결과 렌더링
 function renderResults(stats) {
-    // 1. 전체 요약
     totalRegCountEl.textContent = formatNumber(stats.totalReg);
     totalProcessedCountEl.textContent = formatNumber(stats.totalProcessed);
 
-    // 2. 상세 리스트 렌더링 헬퍼
     const renderList = (el, dataObj) => {
         el.innerHTML = '';
         const sortedKeys = Object.keys(dataObj).sort();
@@ -128,9 +127,7 @@ function renderResults(stats) {
     renderList(methodReportList, stats.byMethod);
     renderList(channelReportList, stats.byChannel);
 
-    // 3. 과거 데이터 비교 업데이트
     updateHistoricalComparison(stats.totalProcessed);
-    
     alert('통계 분석 보고서가 생성되었습니다.');
 }
 
@@ -161,7 +158,6 @@ function updateHistoricalComparison(currentTotal) {
         return \`<span class="trend-muted">- 변동 없음</span>\`;
     };
 
-    // M-1, M-2, M-3
     for (let i = 1; i <= 3; i++) {
         const data = historical[i - 1];
         const titleEl = document.getElementById(\`month-minus-\${i}-title\`);
@@ -170,12 +166,10 @@ function updateHistoricalComparison(currentTotal) {
         
         if (titleEl) titleEl.textContent = getPreviousMonthName(i);
         if (amountEl) amountEl.textContent = formatNumber(data.amount);
-        
         const compareVal = (i === 1) ? base : historical[i-2].amount;
         if (trendEl) trendEl.innerHTML = calcTrend(compareVal, data.amount);
     }
 
-    // 전년 동월
     const lastYearData = historical[3];
     const lastYearAmountEl = document.getElementById('last-year-amount');
     const lastYearTrendEl = document.getElementById('last-year-trend');
@@ -183,12 +177,10 @@ function updateHistoricalComparison(currentTotal) {
     if (lastYearTrendEl) lastYearTrendEl.innerHTML = calcTrend(base, lastYearData.amount);
 }
 
-// 초기화
 function init() {
     updateHistoricalComparison(0);
 }
 
-// 이벤트 리스너
 if (processDataBtn) {
     processDataBtn.addEventListener('click', runAnalysis);
 }
