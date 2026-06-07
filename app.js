@@ -7,6 +7,7 @@ let allData = [];
 let vaActualData = [];
 let currentMonthRows = [];
 let sortConfig = { key: null, direction: 'asc' };
+let vaChartInstance = null; // Chart.js 인스턴스 보관용
 
 // --- DOM 요소 ---
 const elements = {
@@ -45,7 +46,7 @@ const elements = {
         channelShares: document.getElementById('channel-shares'),
         methodShares: document.getElementById('method-shares'),
         timeLoad: document.getElementById('time-load-analysis'),
-        vaTimeComp: document.getElementById('va-time-comparison')
+        vaTimeChartCanvas: document.getElementById('vaTimeChart') // Chart.js Canvas
     },
     summaryTable: document.getElementById('monthly-summary-body'),
     dataTable: document.getElementById('table-body')
@@ -219,20 +220,64 @@ function render(cur, ts, va) {
         elements.stats.vaConv.textContent = va.convRate + '%';
 
         const allHours = [...new Set([...Object.keys(va.timeAppMap), ...Object.keys(va.timeDepMap)])].sort();
-        const maxVA = Math.max(...Object.values(va.timeAppMap), ...Object.values(va.timeDepMap), 1);
         
-        elements.visuals.vaTimeComp.innerHTML = allHours.map(h => {
-            const hApp = ((va.timeAppMap[h] || 0) / maxVA) * 100;
-            const hDep = ((va.timeDepMap[h] || 0) / maxVA) * 100;
-            return `
-                <div class="load-bar-wrapper dual">
-                    <div class="dual-bars">
-                        <div class="load-bar va-app" style="height:${hApp}%" title="신청: ${va.timeAppMap[h] || 0}건"></div>
-                        <div class="load-bar va-dep" style="height:${hDep}%" title="입금: ${va.timeDepMap[h] || 0}건"></div>
-                    </div>
-                    <div class="load-label">${h}</div>
-                </div>`;
-        }).join('');
+        // Chart.js 데이터 준비
+        const labels = allHours.map(h => h + '시');
+        const appData = allHours.map(h => va.timeAppMap[h] || 0);
+        const depData = allHours.map(h => va.timeDepMap[h] || 0);
+
+        if (vaChartInstance) {
+            vaChartInstance.destroy();
+        }
+
+        const ctx = elements.visuals.vaTimeChartCanvas.getContext('2d');
+        vaChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '가상계좌 신청',
+                        data: appData,
+                        borderColor: '#3b82f6', // 파란색
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3b82f6'
+                    },
+                    {
+                        label: '실제 보험료 입금',
+                        data: depData,
+                        borderColor: '#f97316', // 주황색
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#f97316'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: { display: true, text: '시간대', font: { weight: 'bold' } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: '처리건수 (건)', font: { weight: 'bold' } }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false }
+            }
+        });
+
     } else {
         elements.vaSection.classList.add('hidden');
     }
@@ -314,4 +359,8 @@ elements.clearBtn.onclick = () => {
     elements.fileNameDisplays.general.textContent = '선택된 파일 없음';
     elements.fileNameDisplays.va.textContent = '선택된 파일 없음';
     elements.dashboard.classList.add('hidden');
+    if (vaChartInstance) {
+        vaChartInstance.destroy();
+        vaChartInstance = null;
+    }
 };
