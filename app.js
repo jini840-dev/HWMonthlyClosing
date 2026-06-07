@@ -106,7 +106,6 @@ function formatTime(t) {
 
 // --- 2. 분석 및 집계 ---
 function analyze() {
-    // 1. 일반 마감 데이터 분석
     const generalText = elements.inputs.general.value;
     allData = parseData(generalText);
     
@@ -119,18 +118,12 @@ function analyze() {
     const currentYM = yms[0];
     currentMonthRows = allData.filter(d => d.ym === currentYM);
 
-    // 2. 가상계좌 실제 입금 데이터 분석
     const vaText = elements.inputs.va.value;
     vaActualData = parseData(vaText);
     const vaCurrentRows = vaActualData.filter(d => d.ym === currentYM);
 
-    // [당월 일반 분석]
     const currentStats = aggregate(currentMonthRows);
-    
-    // [시계열 분석]
     const tsResults = aggregateTimeSeries(allData, currentYM);
-
-    // [가상계좌 상관관계 분석]
     const vaStats = analyzeVAProcess(currentMonthRows, vaCurrentRows);
 
     render(currentStats, tsResults, vaStats);
@@ -143,7 +136,6 @@ function aggregate(rows) {
         res.totalReg += r.regCount;
         res.channelMap[r.channel] = (res.channelMap[r.channel] || 0) + r.procCount;
         
-        // 기존 '가상계좌입금' 명칭을 분석 단계에서 '가상계좌 신청'으로 내부 처리 (UI 반영은 renderShare에서)
         let methodName = r.method;
         if(methodName === '가상계좌입금') methodName = '가상계좌 신청';
         res.methodMap[methodName] = (res.methodMap[methodName] || 0) + r.procCount;
@@ -158,12 +150,10 @@ function aggregate(rows) {
 }
 
 function analyzeVAProcess(generalRows, vaActualRows) {
-    // 가상계좌 신청건 (방법 필드에서 추출)
     const appRows = generalRows.filter(r => r.method === '가상계좌입금');
     const appCount = appRows.reduce((a, b) => a + b.procCount, 0);
     const depCount = vaActualRows.reduce((a, b) => a + b.procCount, 0);
 
-    // 시간대별 분포 맵 (00~23)
     const timeAppMap = {};
     const timeDepMap = {};
 
@@ -203,37 +193,31 @@ function aggregateTimeSeries(data, curYM) {
 function render(cur, ts, va) {
     elements.dashboard.classList.remove('hidden');
     
-    // 일반 스탯
     elements.stats.totalProc.textContent = cur.totalProc.toLocaleString();
     elements.stats.totalReg.textContent = cur.totalReg.toLocaleString();
     elements.stats.peakTime.textContent = cur.peakTime;
 
-    // YoY
     const yoy = ts.yoy;
     elements.stats.yoyVal.textContent = yoy.proc.toLocaleString();
     const yoyDiff = cur.totalProc - yoy.proc;
     const yoyPer = yoy.proc > 0 ? ((yoyDiff / yoy.proc) * 100).toFixed(1) : 0;
     elements.stats.yoyDelta.innerHTML = `<span class="${yoyDiff >= 0 ? 'up' : 'down'}">${yoyDiff >= 0 ? '▲' : '▼'} ${Math.abs(yoyPer)}%</span>`;
 
-    // 점유율 차트
     renderShare(elements.visuals.channelShares, cur.channelMap, cur.totalProc);
     renderShare(elements.visuals.methodShares, cur.methodMap, cur.totalProc);
 
-    // 시간대별 부하
     const maxVal = Math.max(...Object.values(cur.timeMap), 1);
     elements.visuals.timeLoad.innerHTML = Object.keys(cur.timeMap).sort().map(t => {
         const h = (cur.timeMap[t] / maxVal) * 100;
         return `<div class="load-bar-wrapper"><div class="load-bar" style="height:${h}%"></div><div class="load-label">${t.split(':')[0]}</div></div>`;
     }).join('');
 
-    // [신규] 가상계좌 분석 결과
     if (va.appCount > 0 || va.depCount > 0) {
         elements.vaSection.classList.remove('hidden');
         elements.stats.vaApp.textContent = va.appCount.toLocaleString() + '건';
         elements.stats.vaDep.textContent = va.depCount.toLocaleString() + '건';
         elements.stats.vaConv.textContent = va.convRate + '%';
 
-        // 이중 바 차트 (신청 vs 입금)
         const allHours = [...new Set([...Object.keys(va.timeAppMap), ...Object.keys(va.timeDepMap)])].sort();
         const maxVA = Math.max(...Object.values(va.timeAppMap), ...Object.values(va.timeDepMap), 1);
         
@@ -249,9 +233,10 @@ function render(cur, ts, va) {
                     <div class="load-label">${h}</div>
                 </div>`;
         }).join('');
+    } else {
+        elements.vaSection.classList.add('hidden');
     }
 
-    // 월별 요약 테이블
     const summaryRows = [
         { label: '당월', data: ts.cur, prev: ts.m1 },
         { label: '전월(M-1)', data: ts.m1, prev: ts.m2 },
@@ -285,7 +270,9 @@ function renderDataTable(data) {
 }
 
 // --- 4. 파일 처리 ---
-const setupFileUpload = (btn, input, display, targetTextarea) => {
+const setupFileUpload = (btnId, input, display, targetTextarea) => {
+    const btn = document.getElementById(btnId);
+    if (!btn || !input) return;
     btn.onclick = () => input.click();
     input.onchange = (e) => {
         const file = e.target.files[0];
@@ -307,18 +294,24 @@ const setupFileUpload = (btn, input, display, targetTextarea) => {
     };
 };
 
-setupFileUpload(elements.fileBtn-general, elements.fileInputs.general, elements.fileNameDisplays.general, elements.inputs.general);
-setupFileUpload(elements.fileBtn-va, elements.fileInputs.va, elements.fileNameDisplays.va, elements.inputs.va);
+setupFileUpload('file-upload-btn-general', elements.fileInputs.general, elements.fileNameDisplays.general, elements.inputs.general);
+setupFileUpload('file-upload-btn-va', elements.fileInputs.va, elements.fileNameDisplays.va, elements.inputs.va);
 
 // --- 나머지 이벤트 ---
 elements.processBtn.onclick = analyze;
 elements.loadBtn.onclick = async () => {
-    const res = await fetch('/rawdata');
-    elements.inputs.general.value = await res.text();
-    alert('기본 샘플 데이터 로드 완료');
+    try {
+        const res1 = await fetch('/rawdata');
+        elements.inputs.general.value = await res1.text();
+        const res2 = await fetch('/rawdata2');
+        if (res2.ok) elements.inputs.va.value = await res2.text();
+        alert('모든 샘플 데이터가 로드되었습니다.');
+    } catch (err) { alert('로드 실패: ' + err.message); }
 };
 elements.clearBtn.onclick = () => {
     elements.inputs.general.value = '';
     elements.inputs.va.value = '';
+    elements.fileNameDisplays.general.textContent = '선택된 파일 없음';
+    elements.fileNameDisplays.va.textContent = '선택된 파일 없음';
     elements.dashboard.classList.add('hidden');
 };
