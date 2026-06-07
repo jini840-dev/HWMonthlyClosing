@@ -10,6 +10,7 @@ let sortConfig = { key: null, direction: 'asc' };
 const elements = {
     input: document.getElementById('raw-data-input'),
     processBtn: document.getElementById('process-data-btn'),
+    loadRawBtn: document.getElementById('load-raw-btn'),
     clearBtn: document.getElementById('clear-btn'),
     dashboard: document.getElementById('dashboard-view'),
     errorContainer: document.getElementById('error-log-container'),
@@ -66,8 +67,21 @@ function formatDataDate(dateStr) {
     return dateStr;
 }
 
+/**
+ * 고도화된 시간대 분석 로직:
+ * - "10" -> "10:00 ~ 10:29"
+ * - "11:30" -> "11:30 ~ 11:59"
+ */
 function formatDataTime(timeStr) {
-    return timeStr.includes(':') ? timeStr : `${timeStr.padStart(2, '0')}:00`;
+    if (timeStr.includes(':')) {
+        const parts = timeStr.split(':');
+        const h = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        return `${h}:${m} ~ ${h}:59`;
+    } else {
+        const h = timeStr.padStart(2, '0');
+        return `${h}:00 ~ ${h}:29`;
+    }
 }
 
 // --- [2] Data Integrity & Mandatory Hierarchy Check ---
@@ -75,8 +89,7 @@ function validateData(rows) {
     const errors = [];
     rows.forEach((row, index) => {
         const rowNum = index + 1;
-        // Logic: '개별납'인 경우 '처리기관채널'이 반드시 유효해야 함 (지점, 콜센터 등)
-        const validChannels = ['지점', '콜센터', '은행', '온라인'];
+        const validChannels = ['지점', '콜센터', '은행', '온라인', '한화생명앱', '홈페이지', '고객센터', '콜센터(ARS)'];
         if (row.type === '개별납' && (!row.channel || row.channel === '-' || row.channel === '미지정')) {
             errors.push(`Row ${rowNum}: '개별납' 데이터에 유효한 처리채널이 매핑되지 않았습니다.`);
         }
@@ -125,7 +138,7 @@ function renderUI(rows, errors) {
 
     // Peak Time
     const sortedTimes = Object.entries(stats.timeMap).sort((a, b) => b[1] - a[1]);
-    elements.stats.peakTime.textContent = sortedTimes.length > 0 ? sortedTimes[0][0] : '-';
+    elements.stats.peakTime.textContent = sortedTimes.length > 0 ? sortedTimes[0][0].split(' ~ ')[0] : '-';
 
     // Top Channel
     const sortedChannels = Object.entries(stats.channelMap).sort((a, b) => b[1] - a[1]);
@@ -156,10 +169,11 @@ function renderUI(rows, errors) {
     elements.visuals.timeLoad.innerHTML = sortedTimeKeys.map(time => {
         const count = stats.timeMap[time];
         const height = (count / maxLoad) * 100;
+        const shortLabel = time.split(' ~ ')[0]; // Start time for label
         return `
             <div class="load-bar-wrapper">
                 <div class="load-bar" style="height: ${height}%" title="${time}: ${count}건"></div>
-                <div class="load-label">${time.split(':')[0]}</div>
+                <div class="load-label">${shortLabel}</div>
             </div>
         `;
     }).join('');
@@ -172,7 +186,7 @@ function renderTable(rows) {
     elements.tableBody.innerHTML = rows.map(row => `
         <tr>
             <td>${row.date}</td>
-            <td>${row.time}</td>
+            <td class="time-window">${row.time}</td>
             <td><span class="type-tag">${row.type}</span></td>
             <td>${row.method}</td>
             <td>${row.channel}</td>
@@ -230,6 +244,18 @@ elements.processBtn.addEventListener('click', () => {
     reportData = rows;
     const errors = validateData(rows);
     renderUI(rows, errors);
+});
+
+elements.loadRawBtn.addEventListener('click', async () => {
+    try {
+        const response = await fetch('/rawdata');
+        if (!response.ok) throw new Error('파일을 불러올 수 없습니다.');
+        const text = await response.text();
+        elements.input.value = text;
+        alert('샘플 데이터(rawdata)를 불러왔습니다. 분석 버튼을 눌러주세요.');
+    } catch (err) {
+        alert('에러: ' + err.message);
+    }
 });
 
 elements.clearBtn.addEventListener('click', () => {

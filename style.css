@@ -217,3 +217,21 @@ th.sort-desc::after { content: ' ▼'; font-size: 0.7rem; }
 @media (max-width: 768px) {
     .grid-3, .grid-2 { grid-template-columns: 1fr; }
 }
+
+/* Time Window Styling */
+.time-window {
+    color: var(--primary-color);
+    font-weight: 500;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+#load-raw-btn {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+#load-raw-btn:hover {
+    background: #e2e8f0;
+}
