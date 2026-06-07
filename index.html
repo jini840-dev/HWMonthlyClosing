@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monthly Closing Report Automation</title>
+    <title>마감 통계 분석 자동화 시스템</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
@@ -12,18 +12,18 @@
         <header class="main-header">
             <div class="header-content">
                 <h1>Monthly Closing Report <span class="badge">Enterprise</span></h1>
-                <div class="system-status" id="last-updated">System Ready</div>
+                <div class="system-status" id="last-updated">Ready</div>
             </div>
         </header>
 
         <main class="content-area">
-            <!-- Input Section -->
+            <!-- 데이터 입력 섹션 -->
             <section class="input-section card">
                 <div class="card-header">
                     <h2>Raw Data Input</h2>
-                    <span class="info-text">항목별 줄바꿈 형태의 데이터를 입력하세요.</span>
+                    <p class="info-text">항목별 줄바꿈 형태의 데이터를 입력하세요.</p>
                 </div>
-                <textarea id="raw-data-input" placeholder="데이터를 이곳에 붙여넣으세요..."></textarea>
+                <textarea id="raw-data-input" rows="8" placeholder="데이터를 이곳에 붙여넣으세요..."></textarea>
                 <div class="action-bar">
                     <button id="process-data-btn" class="btn-primary">분석 및 검증 실행</button>
                     <button id="load-raw-btn" class="btn-secondary">샘플 데이터 로드</button>
@@ -31,57 +31,35 @@
                 </div>
             </section>
 
-            <!-- Error Log Section -->
+            <!-- 에러 로그 섹션 -->
             <div id="error-log-container" class="error-log hidden">
-                <h3><span class="icon">⚠️</span> 데이터 무결성 검증 위반 (Hierarchy Errors)</h3>
+                <h3>⚠️ 데이터 무결성 검증 위반</h3>
                 <ul id="error-list"></ul>
             </div>
 
-            <!-- Dashboard View -->
+            <!-- 분석 결과 대시보드 -->
             <div id="dashboard-view" class="dashboard-grid hidden">
                 
-                <!-- [New] Time-Series Comparison Widgets -->
-                <section class="comparison-section">
-                    <h3 class="section-title">시계열 비교 분석 (Time-Series Comparison)</h3>
-                    <div class="comparison-cards grid-4">
-                        <div class="card compare-card" id="card-mom-1">
-                            <div class="card-label">전월 대비 (M-1)</div>
-                            <div class="card-value" id="val-mom-1">0</div>
-                            <div class="card-delta" id="delta-mom-1">-</div>
-                        </div>
-                        <div class="card compare-card" id="card-mom-2">
-                            <div class="card-label">2개월 전 대비 (M-2)</div>
-                            <div class="card-value" id="val-mom-2">0</div>
-                            <div class="card-delta" id="delta-mom-2">-</div>
-                        </div>
-                        <div class="card compare-card" id="card-mom-3">
-                            <div class="card-label">3개월 전 대비 (M-3)</div>
-                            <div class="card-value" id="val-mom-3">0</div>
-                            <div class="card-delta" id="delta-mom-3">-</div>
-                        </div>
-                        <div class="card compare-card highlight-yoy" id="card-yoy">
-                            <div class="card-label">전년 동월 대비 (YoY)</div>
-                            <div class="card-value" id="val-yoy">0</div>
-                            <div class="card-delta" id="delta-yoy">-</div>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="grid-2">
-                    <!-- Top Metrics Widget -->
+                <!-- 1. 당월 요약 위젯 (최대 부하 시간대 포함) -->
+                <section class="summary-section grid-3">
                     <div class="card widget">
-                        <div class="widget-label">당월 수납 실적 (처리건수)</div>
+                        <div class="widget-label">당월 총 처리건수</div>
                         <div class="widget-value" id="stat-total-proc">0</div>
                         <div class="widget-sub">증번: <span id="stat-total-reg">0</span>건</div>
                     </div>
-                    <!-- Peak Time Widget -->
-                    <div class="card widget">
+                    <div class="card widget highlight">
                         <div class="widget-label">당월 최대 부하 시간대</div>
                         <div class="widget-value" id="stat-peak-time">-</div>
-                        <div class="widget-sub">트랜잭션 집중도 분석 결과</div>
+                        <div class="widget-sub">트랜잭션 최다 집중 구간</div>
                     </div>
-                </div>
+                    <div class="card widget">
+                        <div class="widget-label">전년 동월 대비 (YoY)</div>
+                        <div class="widget-value" id="stat-yoy-val">0</div>
+                        <div id="stat-yoy-delta" class="widget-sub">-</div>
+                    </div>
+                </section>
 
+                <!-- 2. 채널별 점유율 & 3. 시간대별 부하 분석 -->
                 <div class="analysis-row grid-2">
                     <div class="card chart-card">
                         <h3>채널별 점유율 (당월)</h3>
@@ -93,33 +71,31 @@
                     </div>
                 </div>
 
-                <!-- [New] Comparison Grid Table -->
+                <!-- 4. 월별 실적 요약 -->
                 <section class="table-section card">
                     <div class="card-header">
-                        <h3>월별 실적 요약 (Monthly Performance Summary)</h3>
+                        <h3>월별 실적 요약 (시계열 비교)</h3>
                     </div>
                     <div class="table-wrapper">
                         <table id="monthly-summary-table">
                             <thead>
                                 <tr>
-                                    <th>분류</th>
+                                    <th>구분</th>
                                     <th>해당월</th>
                                     <th>처리건수</th>
-                                    <th>전체 대비 비중</th>
                                     <th>증번건수</th>
-                                    <th>변동률(%)</th>
+                                    <th>전월비(MoM)</th>
                                 </tr>
                             </thead>
-                            <tbody id="monthly-summary-body">
-                            </tbody>
+                            <tbody id="monthly-summary-body"></tbody>
                         </table>
                     </div>
                 </section>
 
-                <!-- Raw Data Table -->
+                <!-- 5. 기준월 상세 데이터 -->
                 <section class="table-section card">
                     <div class="card-header">
-                        <h3>기준월 상세 데이터 (Current Month Detail)</h3>
+                        <h3>기준월 상세 데이터 (Data Table)</h3>
                     </div>
                     <div class="table-wrapper">
                         <table id="data-table">
@@ -134,8 +110,7 @@
                                     <th data-key="procCount" class="sortable">처리건수</th>
                                 </tr>
                             </thead>
-                            <tbody id="table-body">
-                            </tbody>
+                            <tbody id="table-body"></tbody>
                         </table>
                     </div>
                 </section>
