@@ -6,8 +6,15 @@
     <title>마감 통계 분석 자동화 시스템</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- 1. SheetJS for Excel Upload/Export -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- 2. Chart.js for Visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 3. html2pdf for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- 4. PptxGenJS for PPT Export -->
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -19,6 +26,7 @@
         </header>
 
         <main class="content-area">
+            <!-- 1. Data Input Section -->
             <section class="input-section card">
                 <div class="card-header">
                     <h2>Data Input Control</h2>
@@ -53,12 +61,24 @@
                 </div>
             </section>
 
+            <!-- 2. Error Log Section -->
             <div id="error-log-container" class="error-log hidden">
                 <h3>⚠️ 데이터 무결성 검증 위반</h3>
                 <ul id="error-list"></ul>
             </div>
 
+            <!-- 3. Dashboard View -->
             <div id="dashboard-view" class="dashboard-grid hidden">
+                <!-- Export Toolbar -->
+                <div class="export-toolbar">
+                    <span>📄 결과 내보내기: </span>
+                    <button id="export-pdf-btn" class="btn-export pdf">PDF 저장</button>
+                    <button id="export-excel-btn" class="btn-export excel">Excel 저장</button>
+                    <button id="export-ppt-btn" class="btn-export ppt">PPT 생성</button>
+                    <button id="export-email-btn" class="btn-export email">📧 메일로 공유</button>
+                </div>
+
+                <!-- Summary Widgets -->
                 <section class="summary-section grid-3">
                     <div class="card widget">
                         <div class="widget-label">당월 총 처리건수 (신청기준)</div>
@@ -77,6 +97,7 @@
                     </div>
                 </section>
 
+                <!-- Visual Charts -->
                 <div class="analysis-row grid-3">
                     <div class="card chart-card">
                         <h3>채널별 점유율 (당월)</h3>
@@ -86,8 +107,7 @@
                         <h3>입출금방법별 점유율 (당월)</h3>
                         <div id="method-shares" class="share-list"></div>
                     </div>
-                    <!-- [고도화] 시간대별 부하 분석 (Chart.js) -->
-                    <div class="card chart-card" style="display: flex; flex-direction: column;">
+                    <div class="card chart-card">
                         <h3>시스템 부하 및 효율성 분석 (당월)</h3>
                         <div style="flex: 1; position: relative; min-height: 250px;">
                             <canvas id="timeLoadChart"></canvas>
@@ -95,16 +115,17 @@
                     </div>
                 </div>
 
+                <!-- VA Analysis Section -->
                 <section id="va-correlation-section" class="va-analysis-section card hidden">
-                    <h3>가상계좌 프로세스 시간대별 비교 (신청 vs 입금)</h3>
+                    <h3>가상계좌 프로세스 분석 (신청 vs 실제입금)</h3>
                     <div class="va-grid" style="display: flex; gap: 2rem; margin-top: 15px;">
                         <div class="va-stats" style="flex: 0 0 250px;">
                             <div class="stat-mini">
-                                <span>가상계좌 신청 (당월)</span>
+                                <span>가상계좌 신청(당월)</span>
                                 <strong id="va-app-count">0건</strong>
                             </div>
                             <div class="stat-mini">
-                                <span>실제 보험료 입금 (당월)</span>
+                                <span>실제 보험료 입금(당월)</span>
                                 <strong id="va-dep-count">0건</strong>
                             </div>
                             <div class="stat-mini">
@@ -118,6 +139,7 @@
                     </div>
                 </section>
 
+                <!-- Monthly Summary Table -->
                 <section class="table-section card">
                     <div class="card-header">
                         <h3>월별 실적 요약 (시계열 비교)</h3>
@@ -138,6 +160,7 @@
                     </div>
                 </section>
 
+                <!-- Detailed Raw Data Table -->
                 <section class="table-section card">
                     <div class="card-header">
                         <h3>기준월 상세 데이터 (Data Table)</h3>
