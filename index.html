@@ -3,101 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>입금 마감 통계 분석 보고서</title>
+    <title>Monthly Closing Report Automation</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="dashboard-container">
-        <header>
-            <h1>입금 마감 통계 분석 보고서</h1>
-            <div class="report-date" id="report-reference-date">기준일자: 2026-03-03</div>
+    <div class="app-container">
+        <header class="main-header">
+            <div class="header-content">
+                <h1>Monthly Closing Report <span class="badge">Enterprise</span></h1>
+                <div class="system-status" id="last-updated">System Ready</div>
+            </div>
         </header>
 
-        <main>
-            <!-- 데이터 입력 섹션 -->
-            <section class="data-input-section card">
-                <h2>원시 데이터(Raw Data) 입력</h2>
-                <p>탭(Tab)으로 구분된 통계 데이터를 아래에 붙여넣기 하세요. (첫 줄은 항목명 포함)</p>
-                <textarea id="raw-data-input" rows="8" placeholder="거래일자&#9;거래시간..."></textarea>
-                <button id="process-data-btn" class="btn-primary">데이터 분석 실행</button>
+        <main class="content-area">
+            <!-- Input Section -->
+            <section class="input-section card">
+                <div class="card-header">
+                    <h2>Raw Data Input</h2>
+                    <span class="info-text">항목별 줄바꿈 형태의 데이터를 입력하세요.</span>
+                </div>
+                <textarea id="raw-data-input" placeholder="데이터를 이곳에 붙여넣으세요..."></textarea>
+                <div class="action-bar">
+                    <button id="process-data-btn" class="btn-primary">분석 및 검증 실행</button>
+                    <button id="clear-btn" class="btn-secondary">초기화</button>
+                </div>
             </section>
 
-            <!-- 분석 결과 섹션 (기본은 숨김 또는 0으로 표시) -->
-            <div id="report-results" class="results-container">
-                <section class="summary-section grid-container">
-                    <div class="card summary-card">
-                        <h3>총 증번건수</h3>
-                        <div class="stats main-stat"><span id="total-reg-count">0</span> 건</div>
-                    </div>
-                    <div class="card summary-card">
-                        <h3>총 처리건수 (TR)</h3>
-                        <div class="stats main-stat"><span id="total-processed-count">0</span> 건</div>
-                    </div>
-                </section>
+            <!-- Error Log Section (Only shows if errors exist) -->
+            <div id="error-log-container" class="error-log hidden">
+                <h3><span class="icon">⚠️</span> 데이터 무결성 검증 위반 (Hierarchy Errors)</h3>
+                <ul id="error-list"></ul>
+            </div>
 
-                <section class="detailed-reports grid-container">
-                    <div class="card report-card">
-                        <h3>거래일자별 요약</h3>
-                        <div id="date-report-list" class="stat-list">
-                            <p class="placeholder-text">데이터를 입력하면 집계 결과가 표시됩니다.</p>
-                        </div>
+            <!-- Dashboard Grid -->
+            <div id="dashboard-view" class="dashboard-grid hidden">
+                <!-- Summary Widgets -->
+                <div class="summary-widgets grid-3">
+                    <div class="card widget">
+                        <div class="widget-label">전체 수납 실적 (처리건수)</div>
+                        <div class="widget-value" id="stat-total-proc">0</div>
+                        <div class="widget-sub">증번: <span id="stat-total-reg">0</span>건</div>
                     </div>
-                    <div class="card report-card">
-                        <h3>시간대별(30분단위) 요약</h3>
-                        <div id="time-report-list" class="stat-list">
-                        </div>
+                    <div class="card widget">
+                        <div class="widget-label">최대 부하 시간대</div>
+                        <div class="widget-value" id="stat-peak-time">-</div>
+                        <div class="widget-sub">트랜잭션 집중도 분석 결과</div>
                     </div>
-                    <div class="card report-card">
-                        <h3>입출금방법별 요약</h3>
-                        <div id="method-report-list" class="stat-list">
-                        </div>
+                    <div class="card widget">
+                        <div class="widget-label">최상위 수납 채널</div>
+                        <div class="widget-value" id="stat-top-channel">-</div>
+                        <div class="widget-sub">점유율: <span id="stat-top-share">0</span>%</div>
                     </div>
-                    <div class="card report-card">
-                        <h3>처리기관채널별 요약</h3>
-                        <div id="channel-report-list" class="stat-list">
-                        </div>
+                </div>
+
+                <!-- Analysis Charts & Tables -->
+                <div class="analysis-row grid-2">
+                    <div class="card chart-card">
+                        <h3>채널별 수납 점유율</h3>
+                        <div id="channel-shares" class="share-list"></div>
+                    </div>
+                    <div class="card chart-card">
+                        <h3>시간대별 부하 분석 (30분 단위)</h3>
+                        <div id="time-load-analysis" class="load-bars"></div>
+                    </div>
+                </div>
+
+                <!-- Data Table Section -->
+                <section class="table-section card">
+                    <div class="card-header">
+                        <h3>원천 데이터 검증 테이블 (Raw Data View)</h3>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="data-table">
+                            <thead>
+                                <tr id="table-headers">
+                                    <th data-key="date" class="sortable">거래일자</th>
+                                    <th data-key="time" class="sortable">거래시간</th>
+                                    <th data-key="type" class="sortable">구분</th>
+                                    <th data-key="method" class="sortable">입출금방법</th>
+                                    <th data-key="channel" class="sortable">처리채널</th>
+                                    <th data-key="regCount" class="sortable">증번건수</th>
+                                    <th data-key="procCount" class="sortable">처리건수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                            </tbody>
+                        </table>
                     </div>
                 </section>
             </div>
-
-            <!-- 과거 데이터 비교 섹션 -->
-            <section class="comparison-section">
-                <h2 class="section-title">과거 데이터 비교 분석</h2>
-                <div class="grid-container">
-                    <div class="card">
-                        <h3 id="month-minus-1-title">M-1월 처리량</h3>
-                        <div class="stats">
-                            <span id="month-minus-1-amount">0</span> 건
-                        </div>
-                        <div class="trend" id="month-minus-1-trend"></div>
-                    </div>
-                    <div class="card">
-                        <h3 id="month-minus-2-title">M-2월 처리량</h3>
-                        <div class="stats">
-                            <span id="month-minus-2-amount">0</span> 건
-                        </div>
-                        <div class="trend" id="month-minus-2-trend"></div>
-                    </div>
-                    <div class="card">
-                        <h3 id="month-minus-3-title">M-3월 처리량</h3>
-                        <div class="stats">
-                            <span id="month-minus-3-amount">0</span> 건
-                        </div>
-                        <div class="trend" id="month-minus-3-trend"></div>
-                    </div>
-                    <div class="card">
-                        <h3>전년 동월 처리량</h3>
-                        <div class="stats">
-                            <span id="last-year-amount">0</span> 건
-                        </div>
-                        <div class="trend" id="last-year-trend"></div>
-                    </div>
-                </div>
-            </section>
         </main>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>
